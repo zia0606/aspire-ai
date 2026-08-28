@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
-import { careerCatalog, calculateMatch } from "../_lib/career-data";
+import { FormEvent, useState } from "react";
+import { careerCatalog } from "../_lib/career-data";
 import { useProfile, useRoadmapProgress } from "../_lib/profile-store";
 
 type Message = {
@@ -30,10 +30,12 @@ export default function AssistantPage() {
   ]);
 
   const career = profile ? careerCatalog[profile.career] : null;
-  const analysis = useMemo(() => profile && career ? calculateMatch(profile) : null, [profile, career]);
+  const missingSkills = profile && career
+    ? career.skills.filter((skill) => !profile.skills.includes(skill))
+    : [];
 
   function answer(question: string) {
-    if (!profile || !career || !analysis) {
+    if (!profile || !career) {
       return "Complete the career assessment first. Then I can use your saved career, score, skills, interests and roadmap progress.";
     }
 
@@ -49,10 +51,10 @@ export default function AssistantPage() {
     }
 
     if (lower.includes("missing") || lower.includes("gap") || lower.includes("weak") || lower.includes("skill")) {
-      if (!analysis.missingSkills.length) {
+      if (!missingSkills.length) {
         return `Your profile already contains all of the core skills Aspire AI tracks for ${profile.career}. Now focus on depth: build stronger projects and prove those skills in real work.`;
       }
-      return `Your current core skill gaps are: ${analysis.missingSkills.join(", ")}. Start with ${analysis.missingSkills.slice(0, 2).join(" and ")} instead of trying to learn everything at once.`;
+      return `Your current core skill gaps are: ${missingSkills.join(", ")}. Start with ${missingSkills.slice(0, 2).join(" and ")} instead of trying to learn everything at once.`;
     }
 
     if (lower.includes("project") || lower.includes("portfolio") || lower.includes("build")) {
@@ -61,8 +63,8 @@ export default function AssistantPage() {
     }
 
     if (lower.includes("match") || lower.includes("score") || lower.includes("percent") || lower.includes("improve")) {
-      const biggestGap = analysis.missingSkills.slice(0, 3);
-      return `Your saved assessment match is ${profile.matchPercentage}%. Dashboard and Roadmap do not change it. To improve a future reassessment, build evidence around ${biggestGap.length ? biggestGap.join(", ") : "deeper projects and experience"}, then retake the assessment when your real profile has changed.`;
+      const biggestGap = missingSkills.slice(0, 3);
+      return `Your saved assessment match is ${profile.matchPercentage}%. Dashboard, Roadmap and Assistant do not recalculate it. To improve a future reassessment, build evidence around ${biggestGap.length ? biggestGap.join(", ") : "deeper projects and experience"}, then retake the assessment when your real profile has changed.`;
     }
 
     if (lower.includes("interview") || lower.includes("job") || lower.includes("internship") || lower.includes("apply")) {
