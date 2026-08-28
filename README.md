@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aspire AI
 
-## Getting Started
+Aspire AI is a career-intelligence web app built with Next.js. A single saved profile powers the assessment result, dashboard, roadmap and career assistant.
 
-First, run the development server:
+## Core flow
+
+1. Complete the assessment.
+2. Aspire AI calculates and saves one career-match score.
+3. Dashboard reads that saved score and shows strengths, gaps and roadmap progress.
+4. Roadmap reads the same profile and tracks completion separately.
+5. Assistant uses the same career, score, skills, interests and roadmap progress.
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## AI Assistant
+
+The assistant has two modes:
+
+- **Smart local mode** works immediately and does not require an API key.
+- **AI mode** uses the server-side `/api/assistant` route when `OPENAI_API_KEY` is configured.
+
+The API key is never sent to the browser.
+
+### Enable AI mode
+
+Create a file named `.env.local` in the project root and add:
+
+```env
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-5.4
+```
+
+Then restart the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+If the provider is unavailable or the key is missing, Aspire AI automatically falls back to local mode instead of breaking the chat.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/` — landing page
+- `/assessment` — career assessment
+- `/dashboard` — match analysis and skill gaps
+- `/roadmap` — personalized roadmap and progress
+- `/assistant` — personalized career assistant
+- `/api/assistant` — server-side assistant endpoint
