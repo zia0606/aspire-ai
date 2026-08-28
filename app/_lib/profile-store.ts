@@ -25,16 +25,34 @@ function getProfileSnapshot() {
   return localStorage.getItem(PROFILE_KEY) ?? localStorage.getItem(LEGACY_PROFILE_KEY) ?? "";
 }
 
+function isProfileV2(value: unknown): value is Profile {
+  if (!value || typeof value !== "object") return false;
+  const profile = value as Partial<Profile>;
+  const breakdown = profile.matchBreakdown;
+  return (
+    profile.version === 2 &&
+    typeof profile.education === "string" &&
+    typeof profile.career === "string" &&
+    typeof profile.experience === "string" &&
+    Array.isArray(profile.skills) &&
+    Array.isArray(profile.interests) &&
+    typeof profile.matchPercentage === "number" &&
+    Number.isFinite(profile.matchPercentage) &&
+    Boolean(breakdown) &&
+    typeof breakdown?.education === "number" &&
+    typeof breakdown?.skills === "number" &&
+    typeof breakdown?.interests === "number" &&
+    typeof breakdown?.experience === "number"
+  );
+}
+
 export function useProfile() {
   const raw = useSyncExternalStore(subscribeProfile, getProfileSnapshot, () => "");
   return useMemo(() => {
     if (!raw) return null;
     try {
-      const parsed = JSON.parse(raw) as Partial<Profile>;
-      if (!parsed.education || !parsed.career || !Array.isArray(parsed.skills) || !Array.isArray(parsed.interests)) {
-        return null;
-      }
-      return parsed as Profile;
+      const parsed: unknown = JSON.parse(raw);
+      return isProfileV2(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -81,8 +99,10 @@ export function useRoadmapProgress(career: string) {
 
   const completed = useMemo(() => {
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter((item): item is number => Number.isInteger(item)) : [];
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is number => Number.isInteger(item))
+        : [];
     } catch {
       return [];
     }
