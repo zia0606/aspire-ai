@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { careerCatalog, calculateMatch, getMatchLabel } from "../_lib/career-data";
+import { careerCatalog, getMatchLabel } from "../_lib/career-data";
 import { useProfile, useRoadmapProgress } from "../_lib/profile-store";
 
 export default function DashboardPage() {
@@ -17,8 +17,9 @@ export default function DashboardPage() {
     return <EmptyProfile />;
   }
 
-  const analysis = calculateMatch(profile);
   const score = profile.matchPercentage;
+  const matchingSkills = career.skills.filter((skill) => profile.skills.includes(skill));
+  const missingSkills = career.skills.filter((skill) => !profile.skills.includes(skill));
   const validCompleted = completed.filter((index) => index >= 0 && index < career.roadmap.length);
   const roadmapProgress = career.roadmap.length
     ? Math.round((validCompleted.length / career.roadmap.length) * 100)
@@ -82,15 +83,15 @@ export default function DashboardPage() {
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <SkillCard
             title="Matching skills"
-            subtitle={`${analysis.matchingSkills.length} core skills already aligned`}
-            skills={analysis.matchingSkills}
+            subtitle={`${matchingSkills.length} core skills already aligned`}
+            skills={matchingSkills}
             empty="You are starting from the foundation — that is okay."
             positive
           />
           <SkillCard
             title="Skills to build next"
-            subtitle={`${analysis.missingSkills.length} gaps from your target career`}
-            skills={analysis.missingSkills}
+            subtitle={`${missingSkills.length} gaps from your target career`}
+            skills={missingSkills}
             empty="You already cover the core skill list."
           />
         </section>
