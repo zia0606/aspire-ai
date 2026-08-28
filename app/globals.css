@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #050708;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button, a { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+::selection { background: rgba(103, 232, 249, 0.25); color: white; }
+
+.gradient-text {
+  background: linear-gradient(100deg, #67e8f9 0%, #60a5fa 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.grid-background {
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+.card {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 1.5rem;
+  background: rgba(255,255,255,.03);
+}
+.eyebrow {
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+.button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #67e8f9;
+  color: #020617;
+  font-weight: 700;
+  transition: background .2s ease, transform .2s ease;
+}
+.button-primary:hover { background: #a5f3fc; transform: translateY(-1px); }
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9999px;
+  background: rgba(255,255,255,.03);
+  color: white;
+  font-weight: 600;
+  transition: background .2s ease;
+}
+.button-secondary:hover { background: rgba(255,255,255,.08); }
+.option {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 1rem;
+  background: rgba(255,255,255,.03);
+  padding: 1rem;
+  text-align: left;
+  color: rgba(255,255,255,.7);
+  transition: border-color .2s, background .2s, color .2s;
+}
+.option:hover { border-color: rgba(103,232,249,.35); color: white; }
+.option-selected {
+  border-color: rgba(103,232,249,.65);
+  background: rgba(103,232,249,.1);
+  color: #cffafe;
+}
