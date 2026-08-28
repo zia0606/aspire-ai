@@ -1,52 +1,192 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-import { careerRequirements, Profile, readProfile } from "../_lib/career-data";
+import { FormEvent, useMemo, useState } from "react";
+import { careerCatalog, calculateMatch } from "../_lib/career-data";
+import { useProfile, useRoadmapProgress } from "../_lib/profile-store";
 
-type Message = { role: "assistant" | "user"; text: string };
+type Message = {
+  role: "assistant" | "user";
+  text: string;
+};
+
+const suggestions = [
+  "What should I learn next?",
+  "Which skills am I missing?",
+  "Give me a project idea",
+  "How can I improve my match?",
+  "How should I prepare for interviews?",
+];
 
 export default function AssistantPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const profile = useProfile();
+  const { completed } = useRoadmapProgress(profile?.career ?? "");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: "Hi! Ask me what to learn next, which project to build, or how to improve your career match." }]);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setProfile(readProfile()), 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      text: "Hi — I’m your Aspire AI career coach. I use the same profile and roadmap as your dashboard. Ask me what to learn, build or improve next.",
+    },
+  ]);
+
+  const career = profile ? careerCatalog[profile.career] : null;
+  const analysis = useMemo(() => profile && career ? calculateMatch(profile) : null, [profile, career]);
 
   function answer(question: string) {
-    if (!profile) return "Complete the assessment first so I can use your career, skills and interests.";
-    const requirements = careerRequirements[profile.career];
-    const gaps = requirements?.skills.filter((skill) => !profile.skills.includes(skill)) ?? [];
+    if (!profile || !career || !analysis) {
+      return "Complete the career assessment first. Then I can use your saved career, score, skills, interests and roadmap progress.";
+    }
+
     const lower = question.toLowerCase();
-    if (lower.includes("skill") || lower.includes("learn") || lower.includes("next")) return gaps.length ? `For ${profile.career}, start with ${gaps.slice(0, 3).join(", ")}. Focus on one at a time and build a small project after each.` : `You already cover the core ${profile.career} skills. Strengthen them through larger projects, testing and deployment.`;
-    if (lower.includes("project") || lower.includes("portfolio")) return `Build one realistic ${profile.career} project that solves a clear problem. Document the problem, your process, the tools you used and the measurable result.`;
-    if (lower.includes("score") || lower.includes("match") || lower.includes("percent")) return `Your saved career match is ${profile.matchPercentage}%. The score comes from the assessment only; Dashboard and Roadmap do not change it.`;
-    if (lower.includes("job") || lower.includes("interview")) return `Prepare a focused resume for ${profile.career}, publish your best projects, practise explaining your decisions, and apply consistently to internships and entry-level roles.`;
-    return `For your ${profile.career} goal, follow the roadmap in order and turn every learning phase into a visible project. Ask me specifically about skills, projects, your score or interview preparation.`;
+    const validCompleted = completed.filter((index) => index >= 0 && index < career.roadmap.length);
+    const nextPhase = career.roadmap.find((_, index) => !validCompleted.includes(index));
+
+    if (lower.includes("learn") || lower.includes("next") || lower.includes("study")) {
+      if (nextPhase) {
+        return `Your next roadmap phase is “${nextPhase.title}”. Focus first on ${nextPhase.topics.slice(0, 3).join(", ")}. A good milestone is: ${nextPhase.project}.`;
+      }
+      return `You have completed every current ${profile.career} roadmap phase. Your next move is to deepen your strongest projects, improve documentation, practise interviews and start applying for real opportunities.`;
+    }
+
+    if (lower.includes("missing") || lower.includes("gap") || lower.includes("weak") || lower.includes("skill")) {
+      if (!analysis.missingSkills.length) {
+        return `Your profile already contains all of the core skills Aspire AI tracks for ${profile.career}. Now focus on depth: build stronger projects and prove those skills in real work.`;
+      }
+      return `Your current core skill gaps are: ${analysis.missingSkills.join(", ")}. Start with ${analysis.missingSkills.slice(0, 2).join(" and ")} instead of trying to learn everything at once.`;
+    }
+
+    if (lower.includes("project") || lower.includes("portfolio") || lower.includes("build")) {
+      const project = nextPhase?.project ?? career.roadmap[career.roadmap.length - 1]?.project;
+      return `Build this next: ${project}. Keep the portfolio case study simple: problem → your approach → tools → screenshots/demo → what you learned → measurable result.`;
+    }
+
+    if (lower.includes("match") || lower.includes("score") || lower.includes("percent") || lower.includes("improve")) {
+      const biggestGap = analysis.missingSkills.slice(0, 3);
+      return `Your saved assessment match is ${profile.matchPercentage}%. Dashboard and Roadmap do not change it. To improve a future reassessment, build evidence around ${biggestGap.length ? biggestGap.join(", ") : "deeper projects and experience"}, then retake the assessment when your real profile has changed.`;
+    }
+
+    if (lower.includes("interview") || lower.includes("job") || lower.includes("internship") || lower.includes("apply")) {
+      return `For ${profile.career}, prepare four things: 1) a one-page focused resume, 2) 2–3 strong projects, 3) short explanations of your technical or business decisions, and 4) repeated mock interview practice. Apply to internships and entry-level roles while continuing the roadmap.`;
+    }
+
+    if (lower.includes("resume") || lower.includes("cv")) {
+      return `For a ${profile.career} resume, lead with relevant skills and projects. For each project, write what you built, the tools you used, and the result. Remove unrelated filler and keep the resume easy to scan.`;
+    }
+
+    if (lower.includes("roadmap") || lower.includes("progress")) {
+      const progress = career.roadmap.length ? Math.round((validCompleted.length / career.roadmap.length) * 100) : 0;
+      return `Your ${profile.career} roadmap is ${progress}% complete: ${validCompleted.length} of ${career.roadmap.length} phases. ${nextPhase ? `Your next phase is “${nextPhase.title}”.` : "You have completed the current roadmap."}`;
+    }
+
+    return `For your ${profile.career} goal, the most useful next action is to follow your roadmap in order and turn each phase into visible evidence. Ask me about your next skill, project, match score, roadmap progress, resume or interviews.`;
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const question = input.trim();
-    if (!question) return;
-    setMessages((items) => [...items, { role: "user", text: question }, { role: "assistant", text: answer(question) }]);
+  function send(question: string) {
+    const clean = question.trim();
+    if (!clean) return;
+    setMessages((current) => [
+      ...current,
+      { role: "user", text: clean },
+      { role: "assistant", text: answer(clean) },
+    ]);
     setInput("");
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    send(input);
   }
 
   return (
     <main className="min-h-screen bg-[#050708] px-6 py-8 text-white">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-4xl flex-col">
-        <header className="flex items-center justify-between"><Link href="/" className="font-semibold">Aspire AI</Link><Link href="/dashboard" className="text-sm text-white/45 hover:text-white">← Dashboard</Link></header>
-        <section className="mt-10 flex flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.025]">
-          <div className="border-b border-white/10 p-6"><p className="eyebrow">Career assistant</p><h1 className="mt-2 text-2xl font-bold">Ask about your next move</h1><p className="mt-2 text-sm text-white/40">{profile ? `Personalized for ${profile.career}` : "Complete your assessment for personalized answers"}</p></div>
-          <div className="flex-1 space-y-4 overflow-y-auto p-6">
-            {messages.map((message, index) => <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "bg-cyan-300 text-black" : "bg-white/[0.06] text-white/70"}`}>{message.text}</p></div>)}
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col">
+        <header className="flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-3 font-semibold">
+            <span className="brand-mark">A</span>
+            <span>Aspire AI</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="text-sm text-white/50 hover:text-white">Dashboard</Link>
+            <Link href="/roadmap" className="text-sm text-white/50 hover:text-white">Roadmap</Link>
           </div>
-          <form onSubmit={submit} className="flex gap-3 border-t border-white/10 p-4"><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="What should I learn next?" className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-5 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/50" /><button className="button-primary px-6 py-3" type="submit">Send</button></form>
+        </header>
+
+        <section className="mt-10 grid flex-1 gap-6 lg:grid-cols-[.72fr_1.28fr]">
+          <aside className="card self-start p-6">
+            <p className="eyebrow">Career context</p>
+            {profile && career ? (
+              <>
+                <h1 className="mt-3 text-2xl font-bold">{profile.career}</h1>
+                <p className="mt-3 text-sm leading-6 text-white/45">{career.summary}</p>
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <ContextMetric label="Match" value={`${profile.matchPercentage}%`} />
+                  <ContextMetric label="Skills" value={String(profile.skills.length)} />
+                  <ContextMetric label="Experience" value={profile.experience} wide />
+                  <ContextMetric label="Education" value={profile.education} wide />
+                </div>
+                <Link href="/assessment" className="button-secondary mt-6 w-full px-5 py-3">Update profile</Link>
+              </>
+            ) : (
+              <>
+                <h1 className="mt-3 text-2xl font-bold">No profile yet</h1>
+                <p className="mt-3 text-sm leading-6 text-white/45">Complete the assessment before asking for personalized guidance.</p>
+                <Link href="/assessment" className="button-primary mt-6 w-full px-5 py-3">Start assessment →</Link>
+              </>
+            )}
+          </aside>
+
+          <section className="card flex min-h-[650px] flex-col overflow-hidden">
+            <div className="border-b border-white/10 p-6">
+              <p className="eyebrow">Aspire AI Assistant</p>
+              <h2 className="mt-2 text-2xl font-bold">Your career co-pilot</h2>
+              <p className="mt-2 text-sm text-white/40">Personalized from the same saved profile used everywhere else.</p>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto p-6">
+              {messages.map((message, index) => (
+                <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <p className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "bg-cyan-300 text-black" : "border border-white/10 bg-white/[0.04] text-white/75"}`}>
+                    {message.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-white/10 p-4">
+              <div className="mb-3 flex flex-wrap gap-2">
+                {suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => send(suggestion)}
+                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55 transition hover:border-cyan-300/25 hover:text-cyan-100"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+              <form onSubmit={submit} className="flex gap-3">
+                <input
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder="Ask what you should do next..."
+                  className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-5 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/40"
+                />
+                <button type="submit" className="button-primary px-6 py-3">Send</button>
+              </form>
+            </div>
+          </section>
         </section>
       </div>
     </main>
+  );
+}
+
+function ContextMetric({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={`rounded-2xl border border-white/10 bg-white/[0.025] p-4 ${wide ? "col-span-2" : ""}`}>
+      <p className="text-xs uppercase tracking-wider text-white/30">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-white/80">{value}</p>
+    </div>
   );
 }
