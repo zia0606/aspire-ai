@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AppNav from "../_components/app-nav";
 import { careerCatalog } from "../_lib/career-data";
 import { useProfile, useRoadmapProgress } from "../_lib/profile-store";
 
@@ -8,19 +9,19 @@ export default function RoadmapPage() {
   const profile = useProfile();
   const { completed, setCompleted } = useRoadmapProgress(profile?.career ?? "");
 
-  if (!profile) {
-    return <NoProfile />;
-  }
+  if (!profile) return <NoProfile />;
 
   const career = careerCatalog[profile.career];
-  if (!career) {
-    return <NoProfile />;
-  }
+  if (!career) return <NoProfile />;
 
   const validCompleted = completed.filter((index) => index >= 0 && index < career.roadmap.length);
   const progress = career.roadmap.length
     ? Math.round((validCompleted.length / career.roadmap.length) * 100)
     : 0;
+  const nextIndex = career.roadmap.findIndex((_, index) => !validCompleted.includes(index));
+  const nextPhase = nextIndex >= 0 ? career.roadmap[nextIndex] : null;
+  const matchingSkills = career.skills.filter((skill) => profile.skills.includes(skill));
+  const missingSkills = career.skills.filter((skill) => !profile.skills.includes(skill));
 
   function togglePhase(index: number) {
     const next = validCompleted.includes(index)
@@ -30,106 +31,135 @@ export default function RoadmapPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050708] px-6 py-8 text-white">
-      <div className="mx-auto max-w-6xl">
-        <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="brand-mark">A</span>
-            <span>Aspire AI</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm text-white/50 hover:text-white">Dashboard</Link>
-            <Link href="/assistant" className="text-sm text-white/50 hover:text-white">Assistant</Link>
-          </div>
-        </header>
+    <main className="page-shell">
+      <AppNav active="roadmap" />
 
-        <section className="mt-12 md:mt-16">
-          <p className="eyebrow">Personalized roadmap</p>
-          <div className="mt-3 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+      <section className="page-container py-10 md:py-14">
+        <div className="grid gap-8 border-b border-[var(--line-strong)] pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="eyebrow">Learning roadmap</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.045em] md:text-6xl">{profile.career}</h1>
+            <p className="text-muted mt-4 max-w-3xl text-lg leading-8">{career.summary}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-6 lg:min-w-[280px]">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight md:text-6xl">{profile.career}</h1>
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-white/50">{career.summary}</p>
+              <p className="text-faint text-xs font-bold uppercase tracking-[.07em]">Career match</p>
+              <div className="metric-number mt-2 text-3xl font-semibold">{profile.matchPercentage}%</div>
+              <p className="text-faint mt-1 text-xs">saved assessment</p>
             </div>
-            <div className="card min-w-56 p-5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-white/40">Career match</span>
-                <strong className="text-cyan-300">{profile.matchPercentage}%</strong>
+            <div>
+              <p className="text-faint text-xs font-bold uppercase tracking-[.07em]">Roadmap</p>
+              <div className="metric-number mt-2 text-3xl font-semibold">{progress}%</div>
+              <p className="text-faint mt-1 text-xs">live progress</p>
+            </div>
+          </div>
+        </div>
+
+        <section className="grid gap-8 py-9 lg:grid-cols-[1.15fr_.85fr]">
+          <div>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="section-kicker">Current progress</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.025em]">
+                  {progress === 100 ? "Current roadmap complete" : nextPhase ? `Next: ${nextPhase.title}` : "Start the first phase"}
+                </h2>
               </div>
-              <p className="mt-2 text-xs text-white/30">Read directly from your assessment</p>
+              <span className={progress === 100 ? "status-pill status-pill-success" : "status-pill"}>
+                {validCompleted.length}/{career.roadmap.length} phases
+              </span>
             </div>
-          </div>
-        </section>
-
-        <section className="card mt-8 p-6 md:p-8">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="eyebrow">Roadmap progress</p>
-              <h2 className="mt-2 text-3xl font-bold">{progress}% complete</h2>
-              <p className="mt-2 text-sm text-white/40">{validCompleted.length} of {career.roadmap.length} phases completed</p>
+            <div className="progress-track mt-5">
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>
-            {progress === 100 ? (
-              <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-5 py-2 text-sm font-semibold text-cyan-200">Roadmap completed ✓</div>
-            ) : (
-              <div className="text-sm text-white/35">Keep going — one phase at a time.</div>
+            {nextPhase && (
+              <p className="text-muted mt-4 max-w-2xl text-sm leading-6">
+                Focus on {nextPhase.topics.slice(0, 3).join(", ")}. Finish the phase by building: {nextPhase.project}
+              </p>
             )}
           </div>
-          <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/5">
-            <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-violet-400 transition-all duration-300" style={{ width: `${progress}%` }} />
+
+          <aside className="panel p-6">
+            <p className="section-kicker">Skill coverage</p>
+            <div className="mt-4 flex items-end justify-between gap-4">
+              <span className="metric-number text-3xl font-semibold">{matchingSkills.length}/{career.skills.length}</span>
+              <span className="text-faint text-xs">tracked core skills</span>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {missingSkills.slice(0, 5).map((skill) => (
+                <span key={skill} className="status-pill">+ {skill}</span>
+              ))}
+              {!missingSkills.length && <span className="status-pill status-pill-success">Core skills covered</span>}
+            </div>
+          </aside>
+        </section>
+
+        <section className="border-t border-[var(--line-strong)] pt-10">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <p className="eyebrow">Your learning plan</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em]">Work through the phases in order.</h2>
+            </div>
+            <p className="text-muted max-w-md text-sm leading-6">
+              Mark a phase complete when you can explain the topics and show the project — not just when you have watched the content.
+            </p>
           </div>
-        </section>
 
-        <section className="mt-8 grid gap-5 md:grid-cols-2">
-          <SkillPanel title="Skills already in your profile" skills={career.skills.filter((skill) => profile.skills.includes(skill))} positive />
-          <SkillPanel title="Skills to develop" skills={career.skills.filter((skill) => !profile.skills.includes(skill))} />
-        </section>
-
-        <section className="mt-12">
-          <p className="eyebrow">Learning journey</p>
-          <h2 className="mt-3 text-3xl font-bold md:text-4xl">Follow the phases in order.</h2>
-          <div className="mt-7 space-y-5">
-            {career.roadmap.map((item, index) => {
+          <div className="mt-8 border-y border-[var(--line)]">
+            {career.roadmap.map((phase, index) => {
               const done = validCompleted.includes(index);
+              const current = nextIndex === index;
               return (
-                <article key={item.title} className={`card p-6 transition md:p-8 ${done ? "border-cyan-300/25 bg-cyan-300/[0.05]" : ""}`}>
-                  <div className="flex flex-col gap-6 sm:flex-row">
+                <article key={phase.title} className="grid gap-5 border-b border-[var(--line)] py-7 last:border-b-0 md:grid-cols-[62px_1fr_auto]">
+                  <div>
                     <button
                       type="button"
                       onClick={() => togglePhase(index)}
-                      aria-label={`${done ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
-                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border font-bold transition ${done ? "border-cyan-300 bg-cyan-300 text-black" : "border-white/10 bg-white/[0.03] text-cyan-300"}`}
+                      aria-label={`${done ? "Mark incomplete" : "Mark complete"}: ${phase.title}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition ${
+                        done
+                          ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
+                          : current
+                            ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : "border-[var(--line-strong)] bg-[var(--surface)] text-faint"
+                      }`}
                     >
                       {done ? "✓" : index + 1}
                     </button>
+                  </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Phase {index + 1}</p>
-                          <h3 className="mt-2 text-2xl font-semibold">{item.title}</h3>
-                        </div>
-                        <span className="text-sm text-white/35">{item.duration}</span>
-                      </div>
-                      <p className="mt-4 max-w-3xl leading-7 text-white/45">{item.description}</p>
-
-                      <div className="mt-5 flex flex-wrap gap-2">
-                        {item.topics.map((topic) => (
-                          <span key={topic} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/55">{topic}</span>
-                        ))}
-                      </div>
-
-                      <div className="mt-5 rounded-2xl border border-violet-300/10 bg-violet-300/[0.04] p-4">
-                        <p className="text-xs uppercase tracking-wider text-violet-200/70">Portfolio project</p>
-                        <p className="mt-2 font-medium text-white/80">{item.project}</p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => togglePhase(index)}
-                        className={`mt-5 rounded-full px-5 py-2.5 text-sm font-semibold transition ${done ? "border border-cyan-300/20 bg-cyan-300/10 text-cyan-200" : "bg-cyan-300 text-black hover:bg-cyan-200"}`}
-                      >
-                        {done ? "Completed ✓" : "Mark phase complete"}
-                      </button>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="text-xl font-semibold tracking-[-0.02em]">{phase.title}</h3>
+                      {done && <span className="status-pill status-pill-success">Complete</span>}
+                      {!done && current && <span className="status-pill">Current phase</span>}
                     </div>
+                    <p className="text-muted mt-3 max-w-3xl leading-7">{phase.description}</p>
+
+                    <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_.9fr]">
+                      <div>
+                        <p className="text-faint text-xs font-bold uppercase tracking-[.07em]">Topics</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {phase.topics.map((topic) => (
+                            <span key={topic} className="status-pill">{topic}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="border-l-0 border-[var(--line)] lg:border-l lg:pl-5">
+                        <p className="text-faint text-xs font-bold uppercase tracking-[.07em]">Portfolio proof</p>
+                        <p className="mt-3 text-sm font-medium leading-6">{phase.project}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-4 md:block md:text-right">
+                    <span className="text-faint text-sm">{phase.duration}</span>
+                    <button
+                      type="button"
+                      onClick={() => togglePhase(index)}
+                      className={`mt-0 md:mt-4 ${done ? "button-secondary" : "button-primary"}`}
+                    >
+                      {done ? "Mark incomplete" : "Mark complete"}
+                    </button>
                   </div>
                 </article>
               );
@@ -137,49 +167,53 @@ export default function RoadmapPage() {
           </div>
         </section>
 
-        <section className="mt-10 rounded-3xl border border-violet-300/15 bg-violet-300/[0.04] p-7 md:p-9">
-          <p className="eyebrow">Need guidance?</p>
-          <div className="mt-3 flex flex-col justify-between gap-5 md:flex-row md:items-center">
-            <div>
-              <h2 className="text-2xl font-bold">Ask Aspire AI what to do next.</h2>
-              <p className="mt-2 text-white/45">The assistant reads this same career, score, skills and progress.</p>
+        <section className="grid gap-10 border-t border-[var(--line-strong)] py-10 lg:grid-cols-2">
+          <div>
+            <p className="eyebrow">Skills in your profile</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em]">Already represented</h2>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {matchingSkills.length ? matchingSkills.map((skill) => (
+                <span key={skill} className="status-pill status-pill-success">✓ {skill}</span>
+              )) : <p className="text-muted text-sm">No tracked core skills match yet.</p>}
             </div>
-            <Link href="/assistant" className="button-primary px-7 py-3">Open Assistant →</Link>
+          </div>
+          <div>
+            <p className="eyebrow">Skills to develop</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em]">Gaps worth closing</h2>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {missingSkills.length ? missingSkills.map((skill) => (
+                <span key={skill} className="status-pill">+ {skill}</span>
+              )) : <p className="text-muted text-sm">The tracked core skill list is covered.</p>}
+            </div>
           </div>
         </section>
 
-        <footer className="mt-12 border-t border-white/5 py-8 text-center text-sm text-white/30">
-          Assessment match: {profile.matchPercentage}% · Roadmap progress: {progress}% · These are intentionally separate.
-        </footer>
-      </div>
+        <section className="border-t border-[var(--line-strong)] py-10">
+          <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="eyebrow">Need help with the next phase?</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em]">Use the coach for a focused plan, not a generic answer.</h2>
+              <p className="text-muted mt-3 max-w-2xl leading-7">The coach receives this same career, skill list and roadmap progress as context.</p>
+            </div>
+            <Link href="/assistant" className="button-primary">Open coach</Link>
+          </div>
+        </section>
+      </section>
     </main>
-  );
-}
-
-function SkillPanel({ title, skills, positive = false }: { title: string; skills: string[]; positive?: boolean }) {
-  return (
-    <article className="card p-6">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="mt-5 flex flex-wrap gap-2">
-        {skills.length ? skills.map((skill) => (
-          <span key={skill} className={`rounded-full border px-3 py-2 text-sm ${positive ? "border-cyan-300/15 bg-cyan-300/[0.07] text-cyan-100" : "border-violet-300/15 bg-violet-300/[0.06] text-violet-100"}`}>
-            {positive ? "✓" : "+"} {skill}
-          </span>
-        )) : <span className="text-sm text-white/35">None right now.</span>}
-      </div>
-    </article>
   );
 }
 
 function NoProfile() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#050708] px-6 text-white">
-      <section className="card max-w-xl p-10 text-center">
-        <div className="brand-mark mx-auto">A</div>
-        <p className="eyebrow mt-6">Roadmap unavailable</p>
-        <h1 className="mt-4 text-3xl font-bold">Create your career profile first.</h1>
-        <p className="mt-4 leading-7 text-white/45">Your roadmap is generated from the career selected in the assessment.</p>
-        <Link href="/assessment" className="button-primary mt-8 px-7 py-3">Start assessment →</Link>
+    <main className="page-shell">
+      <AppNav active="roadmap" />
+      <section className="page-container py-20">
+        <div className="max-w-2xl border-t border-[var(--line-strong)] pt-8">
+          <p className="eyebrow">Roadmap</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em]">The roadmap needs a target career first.</h1>
+          <p className="text-muted mt-4 leading-7">Complete the assessment, save a career profile, and Aspire will map the learning phases for that direction.</p>
+          <Link href="/assessment" className="button-primary mt-7">Open assessment</Link>
+        </div>
       </section>
     </main>
   );
