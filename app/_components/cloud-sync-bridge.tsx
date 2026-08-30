@@ -9,6 +9,11 @@ import {
 import { authClient } from "../_lib/auth-client";
 import type { Profile } from "../_lib/career-data";
 import {
+  hydrateInterviewPractice,
+  isInterviewPracticeRecord,
+  readInterviewPracticeLocal,
+} from "../_lib/interview-store";
+import {
   hydratePortfolio,
   isPortfolioEvidence,
   readPortfolioLocal,
@@ -28,6 +33,7 @@ type CloudState = {
   roadmaps?: Array<{ career?: unknown; completed?: unknown }>;
   applications?: unknown;
   portfolioEvidence?: unknown;
+  interviewPractice?: unknown;
 };
 
 function postState(payload: unknown) {
@@ -110,6 +116,17 @@ export default function CloudSyncBridge() {
           hydratePortfolio(cloudPortfolio);
         } else if (localPortfolio.length) {
           await postState({ type: "portfolio", evidence: localPortfolio });
+        }
+
+        const localInterview = readInterviewPracticeLocal();
+        const cloudInterview = Array.isArray(state.interviewPractice)
+          ? state.interviewPractice.filter(isInterviewPracticeRecord)
+          : [];
+
+        if (cloudInterview.length) {
+          hydrateInterviewPractice(cloudInterview);
+        } else if (localInterview.length) {
+          await postState({ type: "interview", practice: localInterview });
         }
       } catch {
         // Keep the existing local state if cloud sync cannot be reached.
