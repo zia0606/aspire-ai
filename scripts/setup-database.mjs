@@ -22,7 +22,6 @@ const auth = betterAuth({
   database,
   secret,
   emailAndPassword: { enabled: true, minPasswordLength: 8 },
-  account: { identityStrategy: "provider-id" },
   advanced: { database: { generateId: "uuid" } },
 });
 
