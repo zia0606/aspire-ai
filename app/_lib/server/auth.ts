@@ -23,9 +23,6 @@ export function getAuth() {
       enabled: true,
       minPasswordLength: 8,
     },
-    account: {
-      identityStrategy: "provider-id",
-    },
     advanced: {
       database: {
         generateId: "uuid",
