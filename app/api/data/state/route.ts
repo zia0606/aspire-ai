@@ -5,7 +5,29 @@ import { isProfileV2 } from "../../../_lib/profile-validation";
 type SaveRequest =
   | { type: "profile"; profile: unknown }
   | { type: "roadmap"; career: unknown; completed: unknown }
-  | { type: "resume"; result: unknown };
+  | { type: "resume"; result: unknown }
+  | { type: "applications"; applications: unknown };
+
+const stages = new Set(["Saved", "Applied", "Interview", "Offer", "Rejected", "Withdrawn"]);
+
+function isApplication(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "string" && item.id.length <= 120 &&
+    typeof item.company === "string" && item.company.length <= 200 &&
+    typeof item.role === "string" && item.role.length <= 200 &&
+    typeof item.stage === "string" && stages.has(item.stage) &&
+    typeof item.location === "string" && item.location.length <= 200 &&
+    typeof item.url === "string" && item.url.length <= 1200 &&
+    typeof item.source === "string" && item.source.length <= 200 &&
+    typeof item.nextAction === "string" && item.nextAction.length <= 500 &&
+    typeof item.dueDate === "string" && item.dueDate.length <= 40 &&
+    typeof item.notes === "string" && item.notes.length <= 5000 &&
+    typeof item.createdAt === "string" &&
+    typeof item.updatedAt === "string"
+  );
+}
 
 async function getUserId(request: Request) {
   const auth = getAuth();
@@ -27,7 +49,7 @@ export async function GET(request: Request) {
     return Response.json({ mode: "guest", signedIn: false });
   }
 
-  const [profileResult, roadmapResult, resumeResult] = await Promise.all([
+  const [profileResult, roadmapResult, resumeResult, applicationsResult] = await Promise.all([
     database.query(
       "select profile, updated_at from aspire_profiles where user_id = $1 limit 1",
       [userId],
@@ -38,6 +60,10 @@ export async function GET(request: Request) {
     ),
     database.query(
       "select id, target_career, resume_score, result, created_at from aspire_resume_analyses where user_id = $1 order by created_at desc limit 10",
+      [userId],
+    ),
+    database.query(
+      "select applications, updated_at from aspire_application_boards where user_id = $1 limit 1",
       [userId],
     ),
   ]);
@@ -58,6 +84,7 @@ export async function GET(request: Request) {
       result: row.result,
       createdAt: row.created_at,
     })),
+    applications: applicationsResult.rows[0]?.applications ?? [],
   });
 }
 
@@ -140,6 +167,22 @@ export async function POST(request: Request) {
     );
 
     return Response.json({ saved: true, type: "resume", id });
+  }
+
+  if (body.type === "applications") {
+    if (!Array.isArray(body.applications) || body.applications.length > 250 || !body.applications.every(isApplication)) {
+      return Response.json({ error: "Invalid applications board." }, { status: 400 });
+    }
+
+    await database.query(
+      `insert into aspire_application_boards (user_id, applications, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (user_id)
+       do update set applications = excluded.applications, updated_at = now()`,
+      [userId, JSON.stringify(body.applications)],
+    );
+
+    return Response.json({ saved: true, type: "applications" });
   }
 
   return Response.json({ error: "Unsupported save type." }, { status: 400 });
