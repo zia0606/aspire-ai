@@ -1,0 +1,93 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { authClient } from "../_lib/auth-client";
+import type { Profile } from "../_lib/career-data";
+import { isProfileV2 } from "../_lib/profile-validation";
+import {
+  hydrateProfile,
+  hydrateRoadmapProgress,
+  readProfileLocal,
+  readRoadmapProgressLocal,
+} from "../_lib/profile-store";
+
+type CloudState = {
+  mode?: "local" | "guest" | "cloud";
+  signedIn?: boolean;
+  profile?: unknown;
+  roadmaps?: Array<{ career?: unknown; completed?: unknown }>;
+};
+
+function postState(payload: unknown) {
+  return fetch("/api/data/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export default function CloudSyncBridge() {
+  const { data: session } = authClient.useSession();
+  const syncedUser = useRef<string | null>(null);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || syncedUser.current === userId) return;
+    syncedUser.current = userId;
+
+    let cancelled = false;
+
+    async function sync() {
+      try {
+        const response = await fetch("/api/data/state", { cache: "no-store" });
+        if (!response.ok) return;
+        const state = (await response.json()) as CloudState;
+        if (cancelled || state.mode !== "cloud") return;
+
+        const localProfile = readProfileLocal();
+        const cloudProfile = isProfileV2(state.profile) ? (state.profile as Profile) : null;
+        let activeProfile = localProfile;
+
+        if (cloudProfile) {
+          hydrateProfile(cloudProfile);
+          activeProfile = cloudProfile;
+        } else if (localProfile) {
+          await postState({ type: "profile", profile: localProfile });
+        }
+
+        const roadmaps = Array.isArray(state.roadmaps) ? state.roadmaps : [];
+        for (const roadmap of roadmaps) {
+          if (typeof roadmap.career !== "string" || !Array.isArray(roadmap.completed)) continue;
+          const completed = roadmap.completed.filter(
+            (item): item is number => Number.isInteger(item) && item >= 0,
+          );
+          hydrateRoadmapProgress(roadmap.career, completed);
+        }
+
+        if (activeProfile) {
+          const hasCloudRoadmap = roadmaps.some((item) => item.career === activeProfile?.career);
+          if (!hasCloudRoadmap) {
+            const localCompleted = readRoadmapProgressLocal(activeProfile.career);
+            if (localCompleted.length) {
+              await postState({
+                type: "roadmap",
+                career: activeProfile.career,
+                completed: localCompleted,
+              });
+            }
+          }
+        }
+      } catch {
+        // Keep the existing local state if cloud sync cannot be reached.
+      }
+    }
+
+    void sync();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
+
+  return null;
+}
