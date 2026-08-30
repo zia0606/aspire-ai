@@ -49,7 +49,7 @@ export function isPortfolioEvidence(value: unknown): value is PortfolioEvidence 
   return (
     typeof item.id === "string" &&
     typeof item.career === "string" &&
-    Number.isInteger(item.phaseIndex) &&
+    typeof item.phaseIndex === "number" && Number.isInteger(item.phaseIndex) && item.phaseIndex >= 0 &&
     typeof item.phaseTitle === "string" &&
     typeof item.projectTitle === "string" &&
     isStatus(item.status) &&
