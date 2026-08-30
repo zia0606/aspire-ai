@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useProfile } from "../_lib/profile-store";
 
-type ActivePage = "assessment" | "dashboard" | "roadmap" | "resume" | "assistant" | "account";
+type ActivePage = "assessment" | "explore" | "dashboard" | "roadmap" | "resume" | "assistant" | "account";
 
 const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/assessment", label: "Assessment", key: "assessment" },
+  { href: "/explore", label: "Explore", key: "explore" },
   { href: "/dashboard", label: "Dashboard", key: "dashboard" },
   { href: "/roadmap", label: "Roadmap", key: "roadmap" },
   { href: "/resume", label: "Resume", key: "resume" },
