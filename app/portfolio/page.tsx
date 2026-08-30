@@ -61,10 +61,11 @@ export default function PortfolioPage() {
 
   if (!profile) return <NoProfile />;
 
-  const career = careerCatalog[profile.career];
+  const careerName = profile.career;
+  const career = careerCatalog[careerName];
   if (!career) return <NoProfile />;
 
-  const currentEvidence = evidence.filter((item) => item.career === profile.career);
+  const currentEvidence = evidence.filter((item) => item.career === careerName);
   const readyCount = currentEvidence.filter((item) => proofQuality(item) >= 70).length;
   const publishedCount = currentEvidence.filter((item) => item.status === "Published").length;
   const coverage = career.roadmap.length
@@ -112,7 +113,7 @@ export default function PortfolioPage() {
 
     const record: PortfolioEvidence = {
       id: existing?.id ?? crypto.randomUUID(),
-      career: profile.career,
+      career: careerName,
       phaseIndex: editingPhase,
       phaseTitle: phase.title,
       projectTitle: phase.project,
@@ -128,7 +129,7 @@ export default function PortfolioPage() {
     };
 
     savePortfolio([
-      ...evidence.filter((item) => !(item.career === profile.career && item.phaseIndex === editingPhase)),
+      ...evidence.filter((item) => !(item.career === careerName && item.phaseIndex === editingPhase)),
       record,
     ]);
     setEditingPhase(null);
@@ -136,7 +137,7 @@ export default function PortfolioPage() {
   }
 
   function removeEvidence(phaseIndex: number) {
-    savePortfolio(evidence.filter((item) => !(item.career === profile.career && item.phaseIndex === phaseIndex)));
+    savePortfolio(evidence.filter((item) => !(item.career === careerName && item.phaseIndex === phaseIndex)));
     if (editingPhase === phaseIndex) {
       setEditingPhase(null);
       setForm(emptyForm);
@@ -155,7 +156,7 @@ export default function PortfolioPage() {
               Turn roadmap projects into proof.
             </h1>
             <p className="text-muted mt-4 max-w-3xl text-lg leading-8">
-              Document what you built for {profile.career}: the problem, your approach, measurable outcome, links and skills you can defend in an interview.
+              Document what you built for {careerName}: the problem, your approach, measurable outcome, links and skills you can defend in an interview.
             </p>
           </div>
           <Link href="/roadmap" className="button-secondary">Back to roadmap</Link>
