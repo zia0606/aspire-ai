@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  hydrateApplications,
+  isApplicationRecord,
+  readApplicationsLocal,
+} from "../_lib/application-store";
 import { authClient } from "../_lib/auth-client";
 import type { Profile } from "../_lib/career-data";
 import { isProfileV2 } from "../_lib/profile-validation";
@@ -16,6 +21,7 @@ type CloudState = {
   signedIn?: boolean;
   profile?: unknown;
   roadmaps?: Array<{ career?: unknown; completed?: unknown }>;
+  applications?: unknown;
 };
 
 function postState(payload: unknown) {
@@ -76,6 +82,17 @@ export default function CloudSyncBridge() {
               });
             }
           }
+        }
+
+        const localApplications = readApplicationsLocal();
+        const cloudApplications = Array.isArray(state.applications)
+          ? state.applications.filter(isApplicationRecord)
+          : [];
+
+        if (cloudApplications.length) {
+          hydrateApplications(cloudApplications);
+        } else if (localApplications.length) {
+          await postState({ type: "applications", applications: localApplications });
         }
       } catch {
         // Keep the existing local state if cloud sync cannot be reached.
