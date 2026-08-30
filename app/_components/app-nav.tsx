@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useProfile } from "../_lib/profile-store";
 
-type ActivePage = "assessment" | "explore" | "dashboard" | "roadmap" | "portfolio" | "applications" | "resume" | "assistant" | "account";
+type ActivePage = "assessment" | "explore" | "dashboard" | "roadmap" | "portfolio" | "applications" | "resume" | "interview" | "assistant" | "account";
 
 const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/assessment", label: "Assessment", key: "assessment" },
