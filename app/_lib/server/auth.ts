@@ -1,24 +1,13 @@
 import { betterAuth } from "better-auth";
 import { getDatabasePool } from "./database";
 
-type AspireAuth = ReturnType<typeof betterAuth>;
-
-let authInstance: AspireAuth | null = null;
-
-export function isAuthConfigured() {
-  return Boolean(process.env.DATABASE_URL && process.env.BETTER_AUTH_SECRET);
-}
-
-export function getAuth() {
-  if (!isAuthConfigured()) return null;
-  if (authInstance) return authInstance;
-
-  const database = getDatabasePool();
-  if (!database) return null;
-
-  authInstance = betterAuth({
+function createAspireAuth(
+  database: NonNullable<ReturnType<typeof getDatabasePool>>,
+  secret: string,
+) {
+  return betterAuth({
     database,
-    secret: process.env.BETTER_AUTH_SECRET,
+    secret,
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
@@ -29,6 +18,22 @@ export function getAuth() {
       },
     },
   });
+}
 
+type AspireAuth = ReturnType<typeof createAspireAuth>;
+let authInstance: AspireAuth | null = null;
+
+export function isAuthConfigured() {
+  return Boolean(process.env.DATABASE_URL && process.env.BETTER_AUTH_SECRET);
+}
+
+export function getAuth() {
+  if (authInstance) return authInstance;
+
+  const secret = process.env.BETTER_AUTH_SECRET;
+  const database = getDatabasePool();
+  if (!secret || !database) return null;
+
+  authInstance = createAspireAuth(database, secret);
   return authInstance;
 }
