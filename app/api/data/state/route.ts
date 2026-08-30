@@ -7,10 +7,12 @@ type SaveRequest =
   | { type: "roadmap"; career: unknown; completed: unknown }
   | { type: "resume"; result: unknown }
   | { type: "applications"; applications: unknown }
-  | { type: "portfolio"; evidence: unknown };
+  | { type: "portfolio"; evidence: unknown }
+  | { type: "interview"; practice: unknown };
 
 const stages = new Set(["Saved", "Applied", "Interview", "Offer", "Rejected", "Withdrawn"]);
 const portfolioStatuses = new Set(["Planned", "Building", "Ready", "Published"]);
+const interviewCategories = new Set(["Introduction", "Role", "Technical", "Project", "Behavioral"]);
 
 function isApplication(value: unknown) {
   if (!value || typeof value !== "object") return false;
@@ -52,6 +54,21 @@ function isPortfolioEvidence(value: unknown) {
   );
 }
 
+function isInterviewPractice(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "string" && item.id.length <= 120 &&
+    typeof item.career === "string" && item.career.length <= 200 &&
+    typeof item.questionId === "string" && item.questionId.length <= 240 &&
+    typeof item.question === "string" && item.question.length <= 2000 &&
+    typeof item.category === "string" && interviewCategories.has(item.category) &&
+    typeof item.answer === "string" && item.answer.length <= 12000 &&
+    typeof item.confidence === "number" && Number.isInteger(item.confidence) && item.confidence >= 1 && item.confidence <= 5 &&
+    typeof item.practicedAt === "string"
+  );
+}
+
 async function getUserId(request: Request) {
   const auth = getAuth();
   if (!auth) return null;
@@ -72,7 +89,7 @@ export async function GET(request: Request) {
     return Response.json({ mode: "guest", signedIn: false });
   }
 
-  const [profileResult, roadmapResult, resumeResult, applicationsResult, portfolioResult] = await Promise.all([
+  const [profileResult, roadmapResult, resumeResult, applicationsResult, portfolioResult, interviewResult] = await Promise.all([
     database.query(
       "select profile, updated_at from aspire_profiles where user_id = $1 limit 1",
       [userId],
@@ -91,6 +108,10 @@ export async function GET(request: Request) {
     ),
     database.query(
       "select evidence, updated_at from aspire_portfolio_boards where user_id = $1 limit 1",
+      [userId],
+    ),
+    database.query(
+      "select practice, updated_at from aspire_interview_boards where user_id = $1 limit 1",
       [userId],
     ),
   ]);
@@ -113,6 +134,7 @@ export async function GET(request: Request) {
     })),
     applications: applicationsResult.rows[0]?.applications ?? [],
     portfolioEvidence: portfolioResult.rows[0]?.evidence ?? [],
+    interviewPractice: interviewResult.rows[0]?.practice ?? [],
   });
 }
 
@@ -227,6 +249,22 @@ export async function POST(request: Request) {
     );
 
     return Response.json({ saved: true, type: "portfolio" });
+  }
+
+  if (body.type === "interview") {
+    if (!Array.isArray(body.practice) || body.practice.length > 300 || !body.practice.every(isInterviewPractice)) {
+      return Response.json({ error: "Invalid interview practice history." }, { status: 400 });
+    }
+
+    await database.query(
+      `insert into aspire_interview_boards (user_id, practice, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (user_id)
+       do update set practice = excluded.practice, updated_at = now()`,
+      [userId, JSON.stringify(body.practice)],
+    );
+
+    return Response.json({ saved: true, type: "interview" });
   }
 
   return Response.json({ error: "Unsupported save type." }, { status: 400 });
