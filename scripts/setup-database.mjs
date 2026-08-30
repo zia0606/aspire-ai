@@ -57,6 +57,12 @@ try {
 
     create index if not exists aspire_resume_user_created_idx
       on aspire_resume_analyses (user_id, created_at desc);
+
+    create table if not exists aspire_application_boards (
+      user_id text primary key,
+      applications jsonb not null default '[]'::jsonb,
+      updated_at timestamptz not null default now()
+    );
   `);
 
   console.log("Aspire database setup complete.");
