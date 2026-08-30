@@ -1,0 +1,33 @@
+.application-field {
+  display: grid;
+  gap: .45rem;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.application-field input,
+.application-field select,
+.application-field textarea {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: .62rem;
+  background: #fff;
+  padding: .78rem .85rem;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  outline: none;
+}
+
+.application-field textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.application-field input:focus,
+.application-field select:focus,
+.application-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
