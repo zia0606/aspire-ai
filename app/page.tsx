@@ -25,8 +25,20 @@ const modules = [
   {
     label: "Roadmap",
     title: "Turn the recommendation into a learning plan.",
-    text: "Follow practical phases, track progress and build a portfolio project at each stage.",
+    text: "Follow practical phases, track progress and build a real project at each stage.",
     href: "/roadmap",
+  },
+  {
+    label: "Portfolio",
+    title: "Turn completed projects into evidence.",
+    text: "Document the problem, approach, outcome, links and skills behind each roadmap project.",
+    href: "/portfolio",
+  },
+  {
+    label: "Applications",
+    title: "Move from preparation into real opportunities.",
+    text: "Track internships and jobs, next actions, deadlines and progress from saved opportunity to offer.",
+    href: "/applications",
   },
   {
     label: "Resume",
@@ -74,10 +86,10 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">Career planning, without the guesswork</p>
           <h1 className="mt-5 max-w-4xl text-5xl font-semibold leading-[1.02] tracking-[-0.055em] md:text-7xl">
-            Work out where you fit. Then build toward it.
+            Work out where you fit. Then build proof and act on it.
           </h1>
           <p className="text-muted mt-7 max-w-2xl text-lg leading-8 md:text-xl">
-            Aspire connects a structured assessment with career exploration, a learning roadmap, resume review and career coach. The tools share your profile, but each signal keeps a clear meaning.
+            Aspire connects assessment and career exploration to a learning roadmap, project evidence, resume review, application tracking and practical coaching. The tools share your profile, but each signal keeps a clear meaning.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -100,8 +112,8 @@ export default function HomePage() {
             {[
               ["01", "Assess", "Describe your current position and target direction."],
               ["02", "Explore", "Compare alternatives without rewriting your saved profile."],
-              ["03", "Understand", "See fit, strengths, gaps and readiness separately."],
-              ["04", "Build", "Follow the roadmap and turn progress into proof."],
+              ["03", "Build", "Follow the roadmap and turn projects into documented proof."],
+              ["04", "Apply", "Use your evidence in resumes, applications and interviews."],
             ].map(([number, title, text]) => (
               <li key={number} className="grid grid-cols-[48px_1fr] gap-4 py-5">
                 <span className="text-faint text-sm font-semibold">{number}</span>
@@ -150,6 +162,8 @@ export default function HomePage() {
               ["Assessment creates the profile", "Your five assessment dimensions are the only source for the saved career-match result."],
               ["Explorer stays exploratory", "Profile overlap helps compare alternatives, but it is never stored as a second career-match score."],
               ["Progress stays separate", "Roadmap completion and readiness can change as you work. They do not rewrite your assessment score."],
+              ["Projects become evidence", "Portfolio proof records what you actually built and can show. Its proof quality is not another career score."],
+              ["Applications track execution", "The application board stores opportunities and follow-ups without changing your career profile."],
               ["Resume analysis is its own signal", "Your resume score checks the document itself. It is not treated as a new career match."],
               ["The coach reads context", "The coach can use your saved career, skills and roadmap state, but it does not own the underlying profile."],
             ].map(([title, text], index) => (
@@ -170,7 +184,7 @@ export default function HomePage() {
           <div className="max-w-2xl">
             <p className="eyebrow">Your workspace</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] md:text-4xl">
-              Six focused tools, each with a clear job.
+              Eight focused tools, each with a clear job.
             </h2>
           </div>
 
@@ -201,7 +215,7 @@ export default function HomePage() {
               Comparing a path should not silently choose it for you.
             </h2>
             <p className="text-muted mt-4 max-w-xl leading-7">
-              Use Career Explorer to inspect alternatives. Use Assessment when you want to make a target direction official across the dashboard, roadmap, resume and coach.
+              Use Career Explorer to inspect alternatives. Use Assessment when you want to make a target direction official across the dashboard, roadmap, portfolio, resume and coach.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

@@ -8,6 +8,11 @@ import {
 } from "../_lib/application-store";
 import { authClient } from "../_lib/auth-client";
 import type { Profile } from "../_lib/career-data";
+import {
+  hydratePortfolio,
+  isPortfolioEvidence,
+  readPortfolioLocal,
+} from "../_lib/portfolio-store";
 import { isProfileV2 } from "../_lib/profile-validation";
 import {
   hydrateProfile,
@@ -22,6 +27,7 @@ type CloudState = {
   profile?: unknown;
   roadmaps?: Array<{ career?: unknown; completed?: unknown }>;
   applications?: unknown;
+  portfolioEvidence?: unknown;
 };
 
 function postState(payload: unknown) {
@@ -93,6 +99,17 @@ export default function CloudSyncBridge() {
           hydrateApplications(cloudApplications);
         } else if (localApplications.length) {
           await postState({ type: "applications", applications: localApplications });
+        }
+
+        const localPortfolio = readPortfolioLocal();
+        const cloudPortfolio = Array.isArray(state.portfolioEvidence)
+          ? state.portfolioEvidence.filter(isPortfolioEvidence)
+          : [];
+
+        if (cloudPortfolio.length) {
+          hydratePortfolio(cloudPortfolio);
+        } else if (localPortfolio.length) {
+          await postState({ type: "portfolio", evidence: localPortfolio });
         }
       } catch {
         // Keep the existing local state if cloud sync cannot be reached.

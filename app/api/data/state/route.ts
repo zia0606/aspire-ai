@@ -6,9 +6,11 @@ type SaveRequest =
   | { type: "profile"; profile: unknown }
   | { type: "roadmap"; career: unknown; completed: unknown }
   | { type: "resume"; result: unknown }
-  | { type: "applications"; applications: unknown };
+  | { type: "applications"; applications: unknown }
+  | { type: "portfolio"; evidence: unknown };
 
 const stages = new Set(["Saved", "Applied", "Interview", "Offer", "Rejected", "Withdrawn"]);
+const portfolioStatuses = new Set(["Planned", "Building", "Ready", "Published"]);
 
 function isApplication(value: unknown) {
   if (!value || typeof value !== "object") return false;
@@ -24,6 +26,27 @@ function isApplication(value: unknown) {
     typeof item.nextAction === "string" && item.nextAction.length <= 500 &&
     typeof item.dueDate === "string" && item.dueDate.length <= 40 &&
     typeof item.notes === "string" && item.notes.length <= 5000 &&
+    typeof item.createdAt === "string" &&
+    typeof item.updatedAt === "string"
+  );
+}
+
+function isPortfolioEvidence(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "string" && item.id.length <= 120 &&
+    typeof item.career === "string" && item.career.length <= 200 &&
+    typeof item.phaseIndex === "number" && Number.isInteger(item.phaseIndex) && item.phaseIndex >= 0 && item.phaseIndex < 100 &&
+    typeof item.phaseTitle === "string" && item.phaseTitle.length <= 240 &&
+    typeof item.projectTitle === "string" && item.projectTitle.length <= 500 &&
+    typeof item.status === "string" && portfolioStatuses.has(item.status) &&
+    typeof item.problem === "string" && item.problem.length <= 4000 &&
+    typeof item.approach === "string" && item.approach.length <= 5000 &&
+    typeof item.outcome === "string" && item.outcome.length <= 4000 &&
+    typeof item.repoUrl === "string" && item.repoUrl.length <= 1200 &&
+    typeof item.demoUrl === "string" && item.demoUrl.length <= 1200 &&
+    Array.isArray(item.skills) && item.skills.length <= 60 && item.skills.every((skill) => typeof skill === "string" && skill.length <= 160) &&
     typeof item.createdAt === "string" &&
     typeof item.updatedAt === "string"
   );
@@ -49,7 +72,7 @@ export async function GET(request: Request) {
     return Response.json({ mode: "guest", signedIn: false });
   }
 
-  const [profileResult, roadmapResult, resumeResult, applicationsResult] = await Promise.all([
+  const [profileResult, roadmapResult, resumeResult, applicationsResult, portfolioResult] = await Promise.all([
     database.query(
       "select profile, updated_at from aspire_profiles where user_id = $1 limit 1",
       [userId],
@@ -64,6 +87,10 @@ export async function GET(request: Request) {
     ),
     database.query(
       "select applications, updated_at from aspire_application_boards where user_id = $1 limit 1",
+      [userId],
+    ),
+    database.query(
+      "select evidence, updated_at from aspire_portfolio_boards where user_id = $1 limit 1",
       [userId],
     ),
   ]);
@@ -85,6 +112,7 @@ export async function GET(request: Request) {
       createdAt: row.created_at,
     })),
     applications: applicationsResult.rows[0]?.applications ?? [],
+    portfolioEvidence: portfolioResult.rows[0]?.evidence ?? [],
   });
 }
 
@@ -183,6 +211,22 @@ export async function POST(request: Request) {
     );
 
     return Response.json({ saved: true, type: "applications" });
+  }
+
+  if (body.type === "portfolio") {
+    if (!Array.isArray(body.evidence) || body.evidence.length > 300 || !body.evidence.every(isPortfolioEvidence)) {
+      return Response.json({ error: "Invalid portfolio evidence." }, { status: 400 });
+    }
+
+    await database.query(
+      `insert into aspire_portfolio_boards (user_id, evidence, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (user_id)
+       do update set evidence = excluded.evidence, updated_at = now()`,
+      [userId, JSON.stringify(body.evidence)],
+    );
+
+    return Response.json({ saved: true, type: "portfolio" });
   }
 
   return Response.json({ error: "Unsupported save type." }, { status: 400 });
