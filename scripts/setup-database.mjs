@@ -69,6 +69,12 @@ try {
       evidence jsonb not null default '[]'::jsonb,
       updated_at timestamptz not null default now()
     );
+
+    create table if not exists aspire_interview_boards (
+      user_id text primary key,
+      practice jsonb not null default '[]'::jsonb,
+      updated_at timestamptz not null default now()
+    );
   `);
 
   console.log("Aspire database setup complete.");
