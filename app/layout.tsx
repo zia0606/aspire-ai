@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aspire AI | Career Intelligence",
+  title: "Aspire AI — Career Planning Workspace",
   description:
-    "Discover your career match and follow a personalized learning roadmap.",
+    "Assess your profile, understand your fit, build a career roadmap, review your resume and plan your next move.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

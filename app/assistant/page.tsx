@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import AppNav from "../_components/app-nav";
 import { careerCatalog } from "../_lib/career-data";
 import { useProfile, useRoadmapProgress } from "../_lib/profile-store";
 
@@ -20,9 +21,9 @@ type AssistantResponse = {
 
 const suggestions = [
   "What should I learn next?",
-  "Which skills am I missing?",
+  "Which skill gap matters most?",
   "Give me a project idea",
-  "How can I improve my match?",
+  "How should I improve my resume?",
   "How should I prepare for interviews?",
 ];
 
@@ -35,7 +36,7 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      text: "Hi — I am your Aspire AI career coach. I use the same saved profile, match score and roadmap as your dashboard. Ask me what to learn, build or improve next.",
+      text: "Ask me about your next skill, roadmap phase, project, resume or interview preparation. I’ll use the career profile and progress already saved in Aspire as context.",
     },
   ]);
 
@@ -46,6 +47,7 @@ export default function AssistantPage() {
   const roadmapProgress = career?.roadmap.length
     ? Math.round((validCompleted.length / career.roadmap.length) * 100)
     : 0;
+  const nextPhase = career?.roadmap.find((_, index) => !validCompleted.includes(index));
 
   async function send(question: string) {
     const clean = question.trim();
@@ -60,7 +62,7 @@ export default function AssistantPage() {
         ...current,
         {
           role: "assistant",
-          text: "Complete the career assessment first. Then I can use your saved career, score, skills, interests and roadmap progress.",
+          text: "Complete the assessment first so I have a saved career, score, skills, interests and roadmap to work from.",
         },
       ]);
       return;
@@ -81,24 +83,20 @@ export default function AssistantPage() {
       });
 
       const data = (await response.json()) as AssistantResponse;
-
       if (!response.ok || !data.answer) {
         throw new Error(data.error || "Assistant request failed.");
       }
 
       setMode(data.mode ?? null);
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", text: data.answer as string },
-      ]);
+      setMessages((current) => [...current, { role: "assistant", text: data.answer as string }]);
     } catch (error) {
-      console.error("Aspire AI assistant request failed:", error);
+      console.error("Aspire career coach request failed:", error);
       setMode(null);
       setMessages((current) => [
         ...current,
         {
           role: "assistant",
-          text: "I could not reach the assistant service just now. Your saved profile and roadmap are safe. Try the question again in a moment.",
+          text: "The coach service could not be reached just now. Your saved profile and roadmap are unchanged. Try again in a moment.",
         },
       ]);
     } finally {
@@ -112,82 +110,79 @@ export default function AssistantPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050708] px-6 py-8 text-white">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col">
-        <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="brand-mark">A</span>
-            <span>Aspire AI</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm text-white/50 hover:text-white">Dashboard</Link>
-            <Link href="/roadmap" className="text-sm text-white/50 hover:text-white">Roadmap</Link>
+    <main className="page-shell">
+      <AppNav active="assistant" />
+
+      <section className="page-container py-10 md:py-14">
+        <div className="flex flex-col justify-between gap-5 border-b border-[var(--line-strong)] pb-7 md:flex-row md:items-end">
+          <div>
+            <p className="eyebrow">Career coach</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] md:text-5xl">Ask a focused question.</h1>
+            <p className="text-muted mt-3 max-w-2xl leading-7">
+              The coach uses the profile and roadmap already in Aspire. It does not create a new career-match score or overwrite your assessment.
+            </p>
           </div>
-        </header>
+          <ModeStatus mode={mode} isSending={isSending} />
+        </div>
 
-        <section className="mt-10 grid flex-1 gap-6 lg:grid-cols-[.72fr_1.28fr]">
-          <aside className="card self-start p-6">
-            <div className="flex items-center justify-between gap-3">
-              <p className="eyebrow">Career context</p>
-              <ModeBadge mode={mode} />
-            </div>
-
+        <div className="grid gap-8 py-8 lg:grid-cols-[300px_1fr]">
+          <aside className="self-start lg:sticky lg:top-28">
             {profile && career ? (
-              <>
-                <h1 className="mt-4 text-2xl font-bold">{profile.career}</h1>
-                <p className="mt-3 text-sm leading-6 text-white/45">{career.summary}</p>
+              <div className="panel p-5">
+                <p className="section-kicker">Context in this conversation</p>
+                <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em]">{profile.career}</h2>
+                <p className="text-muted mt-2 text-sm leading-6">{career.summary}</p>
 
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <ContextMetric label="Career match" value={`${profile.matchPercentage}%`} />
-                  <ContextMetric label="Roadmap" value={`${roadmapProgress}%`} />
-                  <ContextMetric label="Skills" value={String(profile.skills.length)} />
-                  <ContextMetric label="Interests" value={String(profile.interests.length)} />
-                  <ContextMetric label="Experience" value={profile.experience} wide />
-                  <ContextMetric label="Education" value={profile.education} wide />
+                <dl className="mt-5 divide-y divide-[var(--line)] border-y border-[var(--line)] text-sm">
+                  <ContextRow label="Career match" value={`${profile.matchPercentage}%`} />
+                  <ContextRow label="Roadmap" value={`${roadmapProgress}%`} />
+                  <ContextRow label="Skills" value={`${profile.skills.length} selected`} />
+                  <ContextRow label="Experience" value={profile.experience} />
+                </dl>
+
+                <div className="mt-5">
+                  <p className="text-faint text-xs font-bold uppercase tracking-[.07em]">Next phase</p>
+                  <p className="mt-2 text-sm font-semibold">{nextPhase?.title ?? "All current phases complete"}</p>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                  <p className="text-xs uppercase tracking-wider text-white/30">Next roadmap phase</p>
-                  <p className="mt-2 text-sm font-semibold text-cyan-100">
-                    {career.roadmap.find((_, index) => !validCompleted.includes(index))?.title ?? "All current phases complete"}
-                  </p>
-                </div>
-
-                <Link href="/assessment" className="button-secondary mt-6 w-full px-5 py-3">Update profile</Link>
-              </>
-            ) : (
-              <>
-                <h1 className="mt-3 text-2xl font-bold">No profile yet</h1>
-                <p className="mt-3 text-sm leading-6 text-white/45">Complete the assessment before asking for personalized guidance.</p>
-                <Link href="/assessment" className="button-primary mt-6 w-full px-5 py-3">Start assessment →</Link>
-              </>
-            )}
-          </aside>
-
-          <section className="card flex min-h-[680px] flex-col overflow-hidden">
-            <div className="border-b border-white/10 p-6">
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                  <p className="eyebrow">Aspire AI Assistant</p>
-                  <h2 className="mt-2 text-2xl font-bold">Your career co-pilot</h2>
-                  <p className="mt-2 text-sm text-white/40">
-                    Uses the exact profile, match score and roadmap shown across Aspire AI.
-                  </p>
-                </div>
-                <div className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs text-white/45">
-                  {isSending ? "Thinking..." : mode === "ai" ? "AI connected" : mode === "local" ? "Smart local mode" : "Ready"}
+                <div className="mt-5 flex gap-2">
+                  <Link href="/roadmap" className="button-secondary flex-1">Roadmap</Link>
+                  <Link href="/assessment" className="button-quiet">Edit</Link>
                 </div>
               </div>
+            ) : (
+              <div className="panel p-5">
+                <p className="section-kicker">No saved context</p>
+                <h2 className="mt-3 text-xl font-semibold">Complete the assessment first.</h2>
+                <p className="text-muted mt-2 text-sm leading-6">The coach is most useful when it can see the same career profile as the rest of the workspace.</p>
+                <Link href="/assessment" className="button-primary mt-5 w-full">Open assessment</Link>
+              </div>
+            )}
+
+            <div className="mt-6 border-t border-[var(--line)] pt-5">
+              <p className="text-faint text-xs leading-5">
+                AI mode is used when a server key is configured. Otherwise Aspire falls back to its local career guidance rules.
+              </p>
+            </div>
+          </aside>
+
+          <section className="panel flex min-h-[650px] flex-col overflow-hidden">
+            <div className="border-b border-[var(--line)] px-5 py-4 md:px-6">
+              <p className="text-sm font-semibold">Conversation</p>
+              <p className="text-faint mt-1 text-xs">Keep questions specific to get more useful next steps.</p>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-6" aria-live="polite">
+            <div className="flex-1 space-y-5 overflow-y-auto p-5 md:p-6" aria-live="polite">
               {messages.map((message, index) => (
-                <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div key={`${message.role}-${index}`} className={`grid gap-2 ${message.role === "user" ? "justify-items-end" : "justify-items-start"}`}>
+                  <span className="text-faint text-[11px] font-bold uppercase tracking-[.07em]">
+                    {message.role === "user" ? "You" : "Aspire coach"}
+                  </span>
                   <p
-                    className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 ${
+                    className={`max-w-[88%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm leading-6 ${
                       message.role === "user"
-                        ? "bg-cyan-300 text-black"
-                        : "border border-white/10 bg-white/[0.04] text-white/75"
+                        ? "bg-[var(--ink)] text-white"
+                        : "border border-[var(--line)] bg-[#f8f6f0] text-[var(--ink)]"
                     }`}
                   >
                     {message.text}
@@ -196,16 +191,17 @@ export default function AssistantPage() {
               ))}
 
               {isSending && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/45">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
-                    Aspire AI is thinking...
+                <div className="grid justify-items-start gap-2">
+                  <span className="text-faint text-[11px] font-bold uppercase tracking-[.07em]">Aspire coach</span>
+                  <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[#f8f6f0] px-4 py-3 text-sm text-muted">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" />
+                    Working on your answer…
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-white/10 p-4">
+            <div className="border-t border-[var(--line)] bg-[#faf8f3] p-4 md:p-5">
               <div className="mb-3 flex flex-wrap gap-2">
                 {suggestions.map((suggestion) => (
                   <button
@@ -213,55 +209,43 @@ export default function AssistantPage() {
                     type="button"
                     disabled={isSending}
                     onClick={() => void send(suggestion)}
-                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/55 transition hover:border-cyan-300/25 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="status-pill transition hover:border-[var(--line-strong)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {suggestion}
                   </button>
                 ))}
               </div>
 
-              <form onSubmit={submit} className="flex gap-3">
+              <form onSubmit={submit} className="flex gap-2">
                 <input
                   value={input}
                   disabled={isSending}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder="Ask what you should do next..."
-                  className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-5 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-300/40 disabled:opacity-50"
+                  placeholder="Ask about your next move…"
+                  className="min-w-0 flex-1 rounded-[.65rem] border border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--faint)] focus:border-[var(--accent)] disabled:opacity-50"
                 />
-                <button
-                  type="submit"
-                  disabled={isSending || !input.trim()}
-                  className="button-primary px-6 py-3 disabled:cursor-not-allowed disabled:opacity-40"
-                >
+                <button type="submit" disabled={isSending || !input.trim()} className="button-primary disabled:cursor-not-allowed disabled:opacity-40">
                   Send
                 </button>
               </form>
             </div>
           </section>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
 
-function ModeBadge({ mode }: { mode: AssistantMode }) {
-  if (!mode) return null;
-  return (
-    <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
-      mode === "ai"
-        ? "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200"
-        : "border-violet-300/20 bg-violet-300/[0.08] text-violet-200"
-    }`}>
-      {mode === "ai" ? "AI" : "Local"}
-    </span>
-  );
+function ModeStatus({ mode, isSending }: { mode: AssistantMode; isSending: boolean }) {
+  const text = isSending ? "Working…" : mode === "ai" ? "AI service connected" : mode === "local" ? "Local guidance mode" : "Ready";
+  return <span className="status-pill">{text}</span>;
 }
 
-function ContextMetric({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+function ContextRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`rounded-2xl border border-white/10 bg-white/[0.025] p-4 ${wide ? "col-span-2" : ""}`}>
-      <p className="text-xs uppercase tracking-wider text-white/30">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white/80">{value}</p>
+    <div className="grid grid-cols-[95px_1fr] gap-3 py-3">
+      <dt className="text-faint">{label}</dt>
+      <dd className="m-0 text-right font-medium">{value}</dd>
     </div>
   );
 }
