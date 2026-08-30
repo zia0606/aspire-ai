@@ -11,6 +11,12 @@ const modules = [
     href: "/assessment",
   },
   {
+    label: "Explore",
+    title: "Compare career directions before you commit.",
+    text: "Browse the career catalog, compare two paths and see profile overlap without changing your saved match.",
+    href: "/explore",
+  },
+  {
     label: "Dashboard",
     title: "Understand the result instead of staring at one score.",
     text: "See your saved career match, skill coverage, readiness, gaps and the next actions worth taking.",
@@ -53,7 +59,7 @@ export default function HomePage() {
 
           <nav className="hidden items-center gap-1 md:flex">
             <a href="#how" className="product-link">How it works</a>
-            <a href="#workspace" className="product-link">Workspace</a>
+            <Link href="/explore" className="product-link">Explore careers</Link>
             <Link href="/assessment" className="product-link">Assessment</Link>
             {profile && <Link href="/dashboard" className="product-link">Dashboard</Link>}
           </nav>
@@ -71,24 +77,20 @@ export default function HomePage() {
             Work out where you fit. Then build toward it.
           </h1>
           <p className="text-muted mt-7 max-w-2xl text-lg leading-8 md:text-xl">
-            Aspire connects one structured assessment to a career dashboard, learning roadmap, resume review and career coach. The tools share your profile, but each score keeps a clear meaning.
+            Aspire connects a structured assessment with career exploration, a learning roadmap, resume review and career coach. The tools share your profile, but each signal keeps a clear meaning.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link href="/assessment" className="button-primary px-6 py-3.5">
               Start or review assessment
             </Link>
-            {profile ? (
-              <Link href="/dashboard" className="button-secondary px-6 py-3.5">
-                Continue saved plan
-              </Link>
-            ) : (
-              <a href="#how" className="button-secondary px-6 py-3.5">See the process</a>
-            )}
+            <Link href="/explore" className="button-secondary px-6 py-3.5">
+              Explore careers
+            </Link>
           </div>
 
           <p className="text-faint mt-5 text-sm">
-            Assessment is always available. A saved profile never hides it.
+            Browse freely. Explorer never changes your saved assessment result.
           </p>
         </div>
 
@@ -97,8 +99,9 @@ export default function HomePage() {
           <ol className="mt-5 divide-y divide-[var(--line)] border-y border-[var(--line)]">
             {[
               ["01", "Assess", "Describe your current position and target direction."],
-              ["02", "Understand", "See fit, strengths, gaps and readiness separately."],
-              ["03", "Build", "Follow the roadmap and turn progress into proof."],
+              ["02", "Explore", "Compare alternatives without rewriting your saved profile."],
+              ["03", "Understand", "See fit, strengths, gaps and readiness separately."],
+              ["04", "Build", "Follow the roadmap and turn progress into proof."],
             ].map(([number, title, text]) => (
               <li key={number} className="grid grid-cols-[48px_1fr] gap-4 py-5">
                 <span className="text-faint text-sm font-semibold">{number}</span>
@@ -125,6 +128,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link href="/explore" className="button-secondary">Compare directions</Link>
               <Link href="/assessment" className="button-secondary">Review assessment</Link>
               <Link href="/dashboard" className="button-primary">Open dashboard</Link>
             </div>
@@ -144,6 +148,7 @@ export default function HomePage() {
           <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
             {[
               ["Assessment creates the profile", "Your five assessment dimensions are the only source for the saved career-match result."],
+              ["Explorer stays exploratory", "Profile overlap helps compare alternatives, but it is never stored as a second career-match score."],
               ["Progress stays separate", "Roadmap completion and readiness can change as you work. They do not rewrite your assessment score."],
               ["Resume analysis is its own signal", "Your resume score checks the document itself. It is not treated as a new career match."],
               ["The coach reads context", "The coach can use your saved career, skills and roadmap state, but it does not own the underlying profile."],
@@ -165,7 +170,7 @@ export default function HomePage() {
           <div className="max-w-2xl">
             <p className="eyebrow">Your workspace</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] md:text-4xl">
-              Five focused tools, each with a clear job.
+              Six focused tools, each with a clear job.
             </h2>
           </div>
 
@@ -191,15 +196,18 @@ export default function HomePage() {
       <section className="page-container py-20 md:py-24">
         <div className="grid gap-8 border-t border-[var(--line-strong)] pt-10 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <p className="eyebrow">Start with the source</p>
+            <p className="eyebrow">Explore, then decide</p>
             <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.035em] md:text-4xl">
-              Your assessment should always be one click away.
+              Comparing a path should not silently choose it for you.
             </h2>
             <p className="text-muted mt-4 max-w-xl leading-7">
-              If you already have a profile, you can review the saved answers before replacing anything. If you stop halfway through a retake, your current saved profile remains intact.
+              Use Career Explorer to inspect alternatives. Use Assessment when you want to make a target direction official across the dashboard, roadmap, resume and coach.
             </p>
           </div>
-          <Link href="/assessment" className="button-primary px-6 py-3.5">Open assessment</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/explore" className="button-secondary px-6 py-3.5">Explore careers</Link>
+            <Link href="/assessment" className="button-primary px-6 py-3.5">Open assessment</Link>
+          </div>
         </div>
       </section>
 
