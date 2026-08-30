@@ -37,7 +37,7 @@ function isPortfolioEvidence(value: unknown) {
   return (
     typeof item.id === "string" && item.id.length <= 120 &&
     typeof item.career === "string" && item.career.length <= 200 &&
-    Number.isInteger(item.phaseIndex) && Number(item.phaseIndex) >= 0 && Number(item.phaseIndex) < 100 &&
+    typeof item.phaseIndex === "number" && Number.isInteger(item.phaseIndex) && item.phaseIndex >= 0 && item.phaseIndex < 100 &&
     typeof item.phaseTitle === "string" && item.phaseTitle.length <= 240 &&
     typeof item.projectTitle === "string" && item.projectTitle.length <= 500 &&
     typeof item.status === "string" && portfolioStatuses.has(item.status) &&
