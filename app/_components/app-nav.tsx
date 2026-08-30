@@ -11,10 +11,9 @@ const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/dashboard", label: "Dashboard", key: "dashboard" },
   { href: "/roadmap", label: "Roadmap", key: "roadmap" },
   { href: "/portfolio", label: "Portfolio", key: "portfolio" },
-  { href: "/applications", label: "Applications", key: "applications" },
+  { href: "/applications", label: "Apply", key: "applications" },
   { href: "/resume", label: "Resume", key: "resume" },
   { href: "/assistant", label: "Coach", key: "assistant" },
-  { href: "/account", label: "Account", key: "account" },
 ];
 
 export default function AppNav({ active }: { active: ActivePage }) {
@@ -45,14 +44,14 @@ export default function AppNav({ active }: { active: ActivePage }) {
 
         <div className="product-context">
           {profile ? (
-            <Link href="/dashboard" className="saved-profile-chip" title={`Saved profile: ${profile.career}`}>
+            <Link href="/account" className="saved-profile-chip" title={`Account · saved profile: ${profile.career}`}>
               <span className="saved-profile-dot" />
               <span className="saved-profile-text">{profile.career}</span>
               <strong>{profile.matchPercentage}%</strong>
             </Link>
           ) : (
-            <Link href="/assessment" className="saved-profile-chip saved-profile-empty">
-              No profile yet
+            <Link href="/account" className="saved-profile-chip saved-profile-empty">
+              Account
             </Link>
           )}
         </div>
