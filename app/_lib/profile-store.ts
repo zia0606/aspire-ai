@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { Profile } from "./career-data";
+import { isProfileV2 } from "./profile-validation";
 
 const PROFILE_KEY = "aspire-profile-v2";
 const LEGACY_PROFILE_KEY = "aspire-profile";
@@ -25,25 +26,34 @@ function getProfileSnapshot() {
   return localStorage.getItem(PROFILE_KEY) ?? localStorage.getItem(LEGACY_PROFILE_KEY) ?? "";
 }
 
-function isProfileV2(value: unknown): value is Profile {
-  if (!value || typeof value !== "object") return false;
-  const profile = value as Partial<Profile>;
-  const breakdown = profile.matchBreakdown;
-  return (
-    profile.version === 2 &&
-    typeof profile.education === "string" &&
-    typeof profile.career === "string" &&
-    typeof profile.experience === "string" &&
-    Array.isArray(profile.skills) &&
-    Array.isArray(profile.interests) &&
-    typeof profile.matchPercentage === "number" &&
-    Number.isFinite(profile.matchPercentage) &&
-    Boolean(breakdown) &&
-    typeof breakdown?.education === "number" &&
-    typeof breakdown?.skills === "number" &&
-    typeof breakdown?.interests === "number" &&
-    typeof breakdown?.experience === "number"
-  );
+function postCloud(payload: unknown) {
+  void fetch("/api/data/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {
+    // Local mode is authoritative when cloud sync is unavailable.
+  });
+}
+
+export function readProfileLocal() {
+  if (typeof window === "undefined") return null;
+  const raw = getProfileSnapshot();
+  if (!raw) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isProfileV2(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hydrateProfile(profile: Profile) {
+  const value = JSON.stringify(profile);
+  localStorage.setItem(PROFILE_KEY, value);
+  localStorage.setItem(LEGACY_PROFILE_KEY, value);
+  window.dispatchEvent(new Event(PROFILE_EVENT));
 }
 
 export function useProfile() {
@@ -60,10 +70,8 @@ export function useProfile() {
 }
 
 export function saveProfile(profile: Profile) {
-  const value = JSON.stringify(profile);
-  localStorage.setItem(PROFILE_KEY, value);
-  localStorage.setItem(LEGACY_PROFILE_KEY, value);
-  window.dispatchEvent(new Event(PROFILE_EVENT));
+  hydrateProfile(profile);
+  postCloud({ type: "profile", profile });
 }
 
 export function clearProfile() {
@@ -89,6 +97,23 @@ function subscribeRoadmap(callback: () => void) {
   };
 }
 
+export function readRoadmapProgressLocal(career: string) {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(progressKey(career)) ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is number => Number.isInteger(item))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function hydrateRoadmapProgress(career: string, completed: number[]) {
+  localStorage.setItem(progressKey(career), JSON.stringify(completed));
+  window.dispatchEvent(new Event(ROADMAP_EVENT));
+}
+
 export function useRoadmapProgress(career: string) {
   const key = progressKey(career);
   const raw = useSyncExternalStore(
@@ -109,8 +134,8 @@ export function useRoadmapProgress(career: string) {
   }, [raw]);
 
   function setCompleted(next: number[]) {
-    localStorage.setItem(key, JSON.stringify(next));
-    window.dispatchEvent(new Event(ROADMAP_EVENT));
+    hydrateRoadmapProgress(career, next);
+    postCloud({ type: "roadmap", career, completed: next });
   }
 
   return { completed, setCompleted };
@@ -119,4 +144,5 @@ export function useRoadmapProgress(career: string) {
 export function resetRoadmapProgress(career: string) {
   localStorage.removeItem(progressKey(career));
   window.dispatchEvent(new Event(ROADMAP_EVENT));
+  postCloud({ type: "roadmap", career, completed: [] });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useProfile } from "../_lib/profile-store";
 
-type ActivePage = "assessment" | "dashboard" | "roadmap" | "resume" | "assistant";
+type ActivePage = "assessment" | "dashboard" | "roadmap" | "resume" | "assistant" | "account";
 
 const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/assessment", label: "Assessment", key: "assessment" },
@@ -11,6 +11,7 @@ const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/roadmap", label: "Roadmap", key: "roadmap" },
   { href: "/resume", label: "Resume", key: "resume" },
   { href: "/assistant", label: "Coach", key: "assistant" },
+  { href: "/account", label: "Account", key: "account" },
 ];
 
 export default function AppNav({ active }: { active: ActivePage }) {
