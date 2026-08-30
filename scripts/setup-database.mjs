@@ -63,6 +63,12 @@ try {
       applications jsonb not null default '[]'::jsonb,
       updated_at timestamptz not null default now()
     );
+
+    create table if not exists aspire_portfolio_boards (
+      user_id text primary key,
+      evidence jsonb not null default '[]'::jsonb,
+      updated_at timestamptz not null default now()
+    );
   `);
 
   console.log("Aspire database setup complete.");
