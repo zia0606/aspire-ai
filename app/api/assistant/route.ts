@@ -147,6 +147,39 @@ function cleanInterviewPractice(value: unknown): CoachInterviewItem[] {
     .filter((item) => item.question || item.answer);
 }
 
+function specialLocalAnswer(workspace: CoachWorkspace) {
+  const lower = workspace.question.toLowerCase();
+  const { profile, career } = workspace;
+
+  const asksAboutCareerMatch =
+    lower.includes("career match") ||
+    lower.includes("match percentage") ||
+    lower.includes("match percent") ||
+    (lower.includes("assessment") && lower.includes("score"));
+
+  if (asksAboutCareerMatch) {
+    if (!profile || !career) {
+      return "Career Match is created only after you complete the Aspire Assessment. It is not a general AI score. Complete the assessment if you want that saved signal; the Coach will not invent one for you.";
+    }
+
+    const missingSkills = career.skills.filter((skill) => !profile.skills.includes(skill));
+    const focus = missingSkills.slice(0, 3);
+    return `Your saved Career Match is ${profile.matchPercentage}%. The Coach does not recalculate or overwrite it. If you want a future reassessment to reflect real improvement, build genuine evidence around ${focus.length ? focus.join(", ") : "deeper projects and experience"}, update your actual skills/interests only when they have changed, and then retake Assessment.`;
+  }
+
+  const asksAboutSwitching =
+    lower.includes("switch career") ||
+    lower.includes("change career") ||
+    lower.includes("career change") ||
+    lower.includes("different career");
+
+  if (asksAboutSwitching && profile) {
+    return `Do not change your saved ${profile.career} direction only because another role sounds interesting today. First test the alternative: compare it in Explore, try one small real task or project from that path, and ask whether you enjoy the work enough to practise it when it becomes difficult. If the evidence consistently points to the new direction, then retake Assessment and make the change deliberately.`;
+  }
+
+  return "";
+}
+
 function extractText(data: OpenAIResponse) {
   if (typeof data.output_text === "string" && data.output_text.trim()) {
     return data.output_text.trim();
@@ -197,7 +230,7 @@ export async function POST(request: Request) {
     question,
   };
 
-  const fallback = localCoachAnswer(workspace);
+  const fallback = specialLocalAnswer(workspace) || localCoachAnswer(workspace);
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
