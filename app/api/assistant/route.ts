@@ -1,18 +1,27 @@
 import { careerCatalog, type CareerDefinition, type Profile } from "../../_lib/career-data";
-
-type ChatMessage = {
-  role: "assistant" | "user";
-  text: string;
-};
+import {
+  buildCoachContext,
+  coachInstructions,
+  localCoachAnswer,
+  type CoachApplicationItem,
+  type CoachInterviewItem,
+  type CoachMessage,
+  type CoachPortfolioItem,
+  type CoachWorkspace,
+} from "../../_lib/coach-engine";
 
 type AssistantRequest = {
-  profile?: Profile | null;
-  completed?: number[];
-  messages?: ChatMessage[];
-  question?: string;
+  profile?: unknown;
+  completed?: unknown;
+  messages?: unknown;
+  portfolio?: unknown;
+  applications?: unknown;
+  interviewPractice?: unknown;
+  question?: unknown;
 };
 
 type OpenAIResponse = {
+  output_text?: string;
   output?: Array<{
     type?: string;
     content?: Array<{
@@ -33,76 +42,149 @@ function isProfile(value: unknown): value is Profile {
     typeof profile.career === "string" &&
     typeof profile.experience === "string" &&
     typeof profile.matchPercentage === "number" &&
+    Number.isFinite(profile.matchPercentage) &&
     Array.isArray(profile.skills) &&
-    Array.isArray(profile.interests)
+    profile.skills.every((skill) => typeof skill === "string") &&
+    Array.isArray(profile.interests) &&
+    profile.interests.every((interest) => typeof interest === "string") &&
+    Boolean(profile.matchBreakdown) &&
+    typeof profile.matchBreakdown?.education === "number" &&
+    typeof profile.matchBreakdown?.skills === "number" &&
+    typeof profile.matchBreakdown?.interests === "number" &&
+    typeof profile.matchBreakdown?.experience === "number"
   );
 }
 
-function cleanCompleted(completed: unknown, career: CareerDefinition) {
-  if (!Array.isArray(completed)) return [];
-  return completed.filter(
+function cleanText(value: unknown, max = 500) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function cleanCompleted(value: unknown, career: CareerDefinition | null) {
+  if (!career || !Array.isArray(value)) return [];
+  return value.filter(
     (item): item is number =>
       Number.isInteger(item) && item >= 0 && item < career.roadmap.length,
   );
 }
 
-function getMissingSkills(profile: Profile, career: CareerDefinition) {
-  return career.skills.filter((skill) => !profile.skills.includes(skill));
+function cleanMessages(value: unknown): CoachMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is { role: "assistant" | "user"; text: string } => {
+      if (!item || typeof item !== "object") return false;
+      const message = item as { role?: unknown; text?: unknown };
+      return (
+        (message.role === "assistant" || message.role === "user") &&
+        typeof message.text === "string"
+      );
+    })
+    .slice(-10)
+    .map((message) => ({ role: message.role, text: message.text.slice(0, 1000) }));
 }
 
-function localAnswer(
-  question: string,
-  profile: Profile,
-  career: CareerDefinition,
-  completed: number[],
-) {
-  const lower = question.toLowerCase();
-  const missingSkills = getMissingSkills(profile, career);
-  const nextPhase = career.roadmap.find((_, index) => !completed.includes(index));
-  const progress = career.roadmap.length
-    ? Math.round((completed.length / career.roadmap.length) * 100)
-    : 0;
+function cleanPortfolio(value: unknown): CoachPortfolioItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === "object")
+    .slice(0, 60)
+    .map((item) => {
+      const record = item as Record<string, unknown>;
+      return {
+        career: cleanText(record.career, 120),
+        phaseTitle: cleanText(record.phaseTitle, 160),
+        projectTitle: cleanText(record.projectTitle, 220),
+        status: cleanText(record.status, 40),
+        problem: cleanText(record.problem, 800),
+        approach: cleanText(record.approach, 800),
+        outcome: cleanText(record.outcome, 800),
+        skills: Array.isArray(record.skills)
+          ? record.skills.filter((skill): skill is string => typeof skill === "string").slice(0, 30)
+          : [],
+      };
+    })
+    .filter((item) => item.projectTitle || item.problem || item.outcome);
+}
 
-  if (lower.includes("learn") || lower.includes("next") || lower.includes("study")) {
-    if (nextPhase) {
-      return `Your next roadmap phase is “${nextPhase.title}”. Focus first on ${nextPhase.topics.slice(0, 3).join(", ")}. A strong milestone is: ${nextPhase.project}.`;
+function cleanApplications(value: unknown): CoachApplicationItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === "object")
+    .slice(0, 100)
+    .map((item) => {
+      const record = item as Record<string, unknown>;
+      return {
+        company: cleanText(record.company, 160),
+        role: cleanText(record.role, 180),
+        stage: cleanText(record.stage, 40),
+        location: cleanText(record.location, 160),
+        nextAction: cleanText(record.nextAction, 400),
+        dueDate: cleanText(record.dueDate, 40),
+        notes: cleanText(record.notes, 600),
+      };
+    })
+    .filter((item) => item.company || item.role || item.nextAction);
+}
+
+function cleanInterviewPractice(value: unknown): CoachInterviewItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === "object")
+    .slice(0, 100)
+    .map((item) => {
+      const record = item as Record<string, unknown>;
+      const confidence = typeof record.confidence === "number" && Number.isFinite(record.confidence)
+        ? Math.min(5, Math.max(1, Math.round(record.confidence)))
+        : 1;
+      return {
+        career: cleanText(record.career, 120),
+        question: cleanText(record.question, 700),
+        category: cleanText(record.category, 80),
+        answer: cleanText(record.answer, 1200),
+        confidence,
+        practicedAt: cleanText(record.practicedAt, 80),
+      };
+    })
+    .filter((item) => item.question || item.answer);
+}
+
+function specialLocalAnswer(workspace: CoachWorkspace) {
+  const lower = workspace.question.toLowerCase();
+  const { profile, career } = workspace;
+
+  const asksAboutCareerMatch =
+    lower.includes("career match") ||
+    lower.includes("match percentage") ||
+    lower.includes("match percent") ||
+    (lower.includes("assessment") && lower.includes("score"));
+
+  if (asksAboutCareerMatch) {
+    if (!profile || !career) {
+      return "Career Match is created only after you complete the Aspire Assessment. It is not a general AI score. Complete the assessment if you want that saved signal; the Coach will not invent one for you.";
     }
-    return `You have completed every current ${profile.career} roadmap phase. Deepen your strongest projects, improve documentation, practise interviews and start applying for real opportunities.`;
-  }
 
-  if (lower.includes("missing") || lower.includes("gap") || lower.includes("weak") || lower.includes("skill")) {
-    if (!missingSkills.length) {
-      return `Your profile already contains all of the core skills Aspire AI tracks for ${profile.career}. Focus on depth now: stronger projects, better documentation and practical experience.`;
-    }
-    return `Your current core skill gaps are ${missingSkills.join(", ")}. Start with ${missingSkills.slice(0, 2).join(" and ")} instead of trying to learn everything at once.`;
-  }
-
-  if (lower.includes("project") || lower.includes("portfolio") || lower.includes("build")) {
-    const project = nextPhase?.project ?? career.roadmap.at(-1)?.project;
-    return `Build this next: ${project}. Present it as problem → approach → tools → demo → result → what you learned.`;
-  }
-
-  if (lower.includes("match") || lower.includes("score") || lower.includes("percent") || lower.includes("improve")) {
+    const missingSkills = career.skills.filter((skill) => !profile.skills.includes(skill));
     const focus = missingSkills.slice(0, 3);
-    return `Your saved assessment match is ${profile.matchPercentage}%. Aspire AI does not recalculate that score outside the assessment. To improve a future reassessment, build real evidence around ${focus.length ? focus.join(", ") : "deeper projects and experience"}, then retake the assessment when your profile has actually changed.`;
+    return `Your saved Career Match is ${profile.matchPercentage}%. The Coach does not recalculate or overwrite it. If you want a future reassessment to reflect real improvement, build genuine evidence around ${focus.length ? focus.join(", ") : "deeper projects and experience"}, update your actual skills/interests only when they have changed, and then retake Assessment.`;
   }
 
-  if (lower.includes("roadmap") || lower.includes("progress")) {
-    return `Your ${profile.career} roadmap is ${progress}% complete: ${completed.length} of ${career.roadmap.length} phases. ${nextPhase ? `Your next phase is “${nextPhase.title}”.` : "You have completed the current roadmap."}`;
+  const asksAboutSwitching =
+    lower.includes("switch career") ||
+    lower.includes("change career") ||
+    lower.includes("career change") ||
+    lower.includes("different career");
+
+  if (asksAboutSwitching && profile) {
+    return `Do not change your saved ${profile.career} direction only because another role sounds interesting today. First test the alternative: compare it in Explore, try one small real task or project from that path, and ask whether you enjoy the work enough to practise it when it becomes difficult. If the evidence consistently points to the new direction, then retake Assessment and make the change deliberately.`;
   }
 
-  if (lower.includes("interview") || lower.includes("job") || lower.includes("internship") || lower.includes("apply")) {
-    return `For ${profile.career}, prepare four things: a focused one-page resume, 2–3 strong projects, short explanations of your decisions, and repeated mock interview practice. Apply while you continue the roadmap.`;
-  }
-
-  if (lower.includes("resume") || lower.includes("cv")) {
-    return `For a ${profile.career} resume, lead with relevant skills and projects. For every project, state what you built, the tools you used and the result. Remove unrelated filler and keep it easy to scan.`;
-  }
-
-  return `For your ${profile.career} goal, the best next action is to follow the roadmap in order and turn each phase into visible evidence. Ask me about skills, projects, your saved match score, roadmap progress, your resume or interviews.`;
+  return "";
 }
 
 function extractText(data: OpenAIResponse) {
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
   for (const item of data.output ?? []) {
     for (const content of item.content ?? []) {
       if (content.type === "output_text" && typeof content.text === "string") {
@@ -111,35 +193,8 @@ function extractText(data: OpenAIResponse) {
       }
     }
   }
+
   return "";
-}
-
-function buildContext(
-  profile: Profile,
-  career: CareerDefinition,
-  completed: number[],
-  messages: ChatMessage[],
-  question: string,
-) {
-  const missingSkills = getMissingSkills(profile, career);
-  const nextPhase = career.roadmap.find((_, index) => !completed.includes(index));
-  const progress = career.roadmap.length
-    ? Math.round((completed.length / career.roadmap.length) * 100)
-    : 0;
-
-  const roadmap = career.roadmap
-    .map(
-      (phase, index) =>
-        `${index + 1}. ${phase.title} (${phase.duration}) — ${phase.description} Topics: ${phase.topics.join(", ")}. Project: ${phase.project}. ${completed.includes(index) ? "COMPLETED" : "NOT COMPLETED"}`,
-    )
-    .join("\n");
-
-  const history = messages
-    .slice(-8)
-    .map((message) => `${message.role.toUpperCase()}: ${message.text.slice(0, 800)}`)
-    .join("\n");
-
-  return `ASPIRE AI PROFILE\nCareer: ${profile.career}\nCareer summary: ${career.summary}\nSaved assessment match: ${profile.matchPercentage}%\nEducation: ${profile.education}\nExperience: ${profile.experience}\nSelected skills: ${profile.skills.join(", ") || "None"}\nInterests: ${profile.interests.join(", ") || "None"}\nCore missing skills: ${missingSkills.join(", ") || "None"}\nRoadmap progress: ${progress}% (${completed.length}/${career.roadmap.length})\nNext roadmap phase: ${nextPhase?.title ?? "All current phases complete"}\n\nROADMAP\n${roadmap}\n\nRECENT CONVERSATION\n${history || "No previous messages"}\n\nCURRENT USER QUESTION\n${question}`;
 }
 
 export async function POST(request: Request) {
@@ -151,44 +206,31 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const question = typeof body.question === "string" ? body.question.trim().slice(0, 1600) : "";
+  const question = cleanText(body.question, 2000);
   if (!question) {
     return Response.json({ error: "Please ask a question." }, { status: 400 });
   }
 
-  if (!isProfile(body.profile)) {
-    return Response.json(
-      {
-        answer: "Complete the career assessment first so I can use your saved profile.",
-        mode: "local",
-      },
-      { status: 200 },
-    );
-  }
-
-  const profile = body.profile;
-  const career = careerCatalog[profile.career];
-  if (!career) {
-    return Response.json(
-      {
-        answer: "I could not find the saved career definition. Please retake the assessment once.",
-        mode: "local",
-      },
-      { status: 200 },
-    );
-  }
-
+  const profile = isProfile(body.profile) ? body.profile : null;
+  const career = profile ? careerCatalog[profile.career] ?? null : null;
   const completed = cleanCompleted(body.completed, career);
-  const messages = Array.isArray(body.messages)
-    ? body.messages.filter(
-        (message): message is ChatMessage =>
-          Boolean(message) &&
-          (message.role === "assistant" || message.role === "user") &&
-          typeof message.text === "string",
-      )
-    : [];
+  const messages = cleanMessages(body.messages);
+  const portfolio = cleanPortfolio(body.portfolio);
+  const applications = cleanApplications(body.applications);
+  const interviewPractice = cleanInterviewPractice(body.interviewPractice);
 
-  const fallback = localAnswer(question, profile, career, completed);
+  const workspace: CoachWorkspace = {
+    profile,
+    career,
+    completed,
+    portfolio,
+    applications,
+    interviewPractice,
+    messages,
+    question,
+  };
+
+  const fallback = specialLocalAnswer(workspace) || localCoachAnswer(workspace);
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -204,16 +246,15 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.4",
-        instructions:
-          "You are Aspire AI, a practical and concise career coach inside a student career-planning product. Personalize only from the provided Aspire profile and roadmap context. The saved assessment match percentage is authoritative: never recalculate, replace or invent a different score. Distinguish career-match score from roadmap-completion percentage. Give concrete next actions and project ideas. Do not claim access to live job-market data, private accounts or facts not present in the supplied context. Keep most answers under 180 words unless the user asks for detail.",
-        input: buildContext(profile, career, completed, messages, question),
-        max_output_tokens: 500,
+        instructions: coachInstructions,
+        input: buildCoachContext(workspace),
+        max_output_tokens: 750,
         store: false,
       }),
     });
 
     if (!response.ok) {
-      console.error("Aspire AI provider request failed:", response.status);
+      console.error("Aspire Coach provider request failed:", response.status);
       return Response.json({ answer: fallback, mode: "local" });
     }
 
@@ -226,7 +267,7 @@ export async function POST(request: Request) {
 
     return Response.json({ answer, mode: "ai" });
   } catch (error) {
-    console.error("Aspire AI provider request failed:", error);
+    console.error("Aspire Coach provider request failed:", error);
     return Response.json({ answer: fallback, mode: "local" });
   }
 }
