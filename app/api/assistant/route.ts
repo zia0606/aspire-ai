@@ -9,6 +9,12 @@ import {
   type CoachPortfolioItem,
   type CoachWorkspace,
 } from "../../_lib/coach-engine";
+import {
+  buildCoachV3Context,
+  coachV3Instructions,
+  complexLocalCoachAnswer,
+  getCoachV3Signals,
+} from "../../_lib/coach-v3-engine";
 
 type AssistantRequest = {
   profile?: unknown;
@@ -230,7 +236,11 @@ export async function POST(request: Request) {
     question,
   };
 
-  const fallback = specialLocalAnswer(workspace) || localCoachAnswer(workspace);
+  const v3Signals = getCoachV3Signals(workspace);
+  const fallback =
+    complexLocalCoachAnswer(workspace) ||
+    specialLocalAnswer(workspace) ||
+    localCoachAnswer(workspace);
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -246,9 +256,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.4",
-        instructions: coachInstructions,
-        input: buildCoachContext(workspace),
-        max_output_tokens: 750,
+        instructions: `${coachInstructions}\n\n${coachV3Instructions}`,
+        input: `${buildCoachContext(workspace)}\n\n${buildCoachV3Context(workspace)}`,
+        max_output_tokens: v3Signals.wantsDetail ? 1200 : 850,
         store: false,
       }),
     });
