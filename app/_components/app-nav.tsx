@@ -13,6 +13,7 @@ const links: Array<{ href: string; label: string; key: ActivePage }> = [
   { href: "/portfolio", label: "Portfolio", key: "portfolio" },
   { href: "/applications", label: "Apply", key: "applications" },
   { href: "/resume", label: "Resume", key: "resume" },
+  { href: "/interview", label: "Interview", key: "interview" },
   { href: "/assistant", label: "Coach", key: "assistant" },
   { href: "/account", label: "Account", key: "account" },
 ];
