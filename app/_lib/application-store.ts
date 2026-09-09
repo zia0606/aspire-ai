@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { queueCloudSave } from "./cloud-save";
 
 export type ApplicationStage =
   | "Saved"
@@ -86,16 +87,6 @@ function snapshot() {
   return localStorage.getItem(APPLICATIONS_KEY) ?? "[]";
 }
 
-function postCloud(applications: ApplicationRecord[]) {
-  void fetch("/api/data/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "applications", applications }),
-  }).catch(() => {
-    // Local application tracking remains available if cloud sync is offline.
-  });
-}
-
 export function readApplicationsLocal() {
   if (typeof window === "undefined") return [];
   return parse(localStorage.getItem(APPLICATIONS_KEY) ?? "[]");
@@ -108,7 +99,7 @@ export function hydrateApplications(applications: ApplicationRecord[]) {
 
 export function saveApplications(applications: ApplicationRecord[]) {
   hydrateApplications(applications);
-  postCloud(applications);
+  void queueCloudSave({ type: "applications", applications });
 }
 
 export function useApplications() {
