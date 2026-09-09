@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { queueCloudSave } from "./cloud-save";
 
 export type PortfolioStatus = "Planned" | "Building" | "Ready" | "Published";
 
@@ -77,16 +78,6 @@ function snapshot() {
   return localStorage.getItem(PORTFOLIO_KEY) ?? "[]";
 }
 
-function postCloud(evidence: PortfolioEvidence[]) {
-  void fetch("/api/data/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "portfolio", evidence }),
-  }).catch(() => {
-    // Portfolio evidence remains available locally when cloud sync is offline.
-  });
-}
-
 export function readPortfolioLocal() {
   if (typeof window === "undefined") return [];
   return parse(localStorage.getItem(PORTFOLIO_KEY) ?? "[]");
@@ -99,7 +90,7 @@ export function hydratePortfolio(evidence: PortfolioEvidence[]) {
 
 export function savePortfolio(evidence: PortfolioEvidence[]) {
   hydratePortfolio(evidence);
-  postCloud(evidence);
+  void queueCloudSave({ type: "portfolio", evidence });
 }
 
 export function usePortfolioEvidence() {

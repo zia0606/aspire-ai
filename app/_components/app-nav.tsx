@@ -1,6 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { authClient } from "../_lib/auth-client";
+import {
+  cloudSaveLabel,
+  flushPendingCloudSaves,
+  useCloudSaveStatus,
+} from "../_lib/cloud-save";
 import { useProfile } from "../_lib/profile-store";
 
 type ActivePage = "assessment" | "explore" | "dashboard" | "roadmap" | "portfolio" | "applications" | "resume" | "interview" | "assistant" | "account";
@@ -20,6 +26,15 @@ const links: Array<{ href: string; label: string; key: ActivePage }> = [
 
 export default function AppNav({ active }: { active: ActivePage }) {
   const profile = useProfile();
+  const { data: session } = authClient.useSession();
+  const saveState = useCloudSaveStatus();
+  const signedIn = Boolean(session?.user?.id);
+  const saveLabel = cloudSaveLabel(saveState, signedIn);
+  const saveClass = saveState.status === "failed"
+    ? "status-pill status-pill-warning"
+    : saveState.status === "saved"
+      ? "status-pill status-pill-success"
+      : "status-pill";
 
   return (
     <header className="product-nav">
@@ -44,7 +59,22 @@ export default function AppNav({ active }: { active: ActivePage }) {
           ))}
         </nav>
 
-        <div className="product-context" aria-label="Saved career status">
+        <div className="product-context flex items-center gap-2" aria-label="Saved career and cloud status">
+          {(signedIn || profile) && (
+            saveState.status === "failed" && signedIn ? (
+              <button
+                type="button"
+                className={saveClass}
+                title={`${saveState.message} Click to retry now.`}
+                onClick={() => void flushPendingCloudSaves(session?.user?.id ?? null, { attempts: 2 })}
+              >
+                {saveLabel}
+              </button>
+            ) : (
+              <span className={saveClass} title={saveState.message}>{saveLabel}</span>
+            )
+          )}
+
           {profile ? (
             <div className="saved-profile-chip" title={`Saved profile: ${profile.career}`}>
               <span className="saved-profile-dot" />

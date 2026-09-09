@@ -2,7 +2,8 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { Profile } from "./career-data";
-import { isProfileV2 } from "./profile-validation";
+import { queueCloudSave } from "./cloud-save";
+import { upgradeProfile } from "./profile-validation";
 
 const PROFILE_KEY = "aspire-profile-v2";
 const LEGACY_PROFILE_KEY = "aspire-profile";
@@ -26,16 +27,6 @@ function getProfileSnapshot() {
   return localStorage.getItem(PROFILE_KEY) ?? localStorage.getItem(LEGACY_PROFILE_KEY) ?? "";
 }
 
-function postCloud(payload: unknown) {
-  void fetch("/api/data/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // Local mode is authoritative when cloud sync is unavailable.
-  });
-}
-
 export function readProfileLocal() {
   if (typeof window === "undefined") return null;
   const raw = getProfileSnapshot();
@@ -43,7 +34,17 @@ export function readProfileLocal() {
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isProfileV2(parsed) ? parsed : null;
+    const upgraded = upgradeProfile(parsed);
+    if (!upgraded) return null;
+
+    // Persist a successfully upgraded legacy profile locally so future reads use
+    // the current schema. The saved Career Match itself is preserved unchanged.
+    const upgradedRaw = JSON.stringify(upgraded);
+    if (upgradedRaw !== raw) {
+      localStorage.setItem(PROFILE_KEY, upgradedRaw);
+      localStorage.setItem(LEGACY_PROFILE_KEY, upgradedRaw);
+    }
+    return upgraded;
   } catch {
     return null;
   }
@@ -62,7 +63,7 @@ export function useProfile() {
     if (!raw) return null;
     try {
       const parsed: unknown = JSON.parse(raw);
-      return isProfileV2(parsed) ? parsed : null;
+      return upgradeProfile(parsed);
     } catch {
       return null;
     }
@@ -71,7 +72,7 @@ export function useProfile() {
 
 export function saveProfile(profile: Profile) {
   hydrateProfile(profile);
-  postCloud({ type: "profile", profile });
+  void queueCloudSave({ type: "profile", profile });
 }
 
 export function clearProfile() {
@@ -135,7 +136,7 @@ export function useRoadmapProgress(career: string) {
 
   function setCompleted(next: number[]) {
     hydrateRoadmapProgress(career, next);
-    postCloud({ type: "roadmap", career, completed: next });
+    void queueCloudSave({ type: "roadmap", career, completed: next });
   }
 
   return { completed, setCompleted };
@@ -144,5 +145,5 @@ export function useRoadmapProgress(career: string) {
 export function resetRoadmapProgress(career: string) {
   localStorage.removeItem(progressKey(career));
   window.dispatchEvent(new Event(ROADMAP_EVENT));
-  postCloud({ type: "roadmap", career, completed: [] });
+  void queueCloudSave({ type: "roadmap", career, completed: [] });
 }

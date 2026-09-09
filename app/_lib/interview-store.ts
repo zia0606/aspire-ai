@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import { queueCloudSave } from "./cloud-save";
 
 export type InterviewCategory = "Introduction" | "Role" | "Technical" | "Project" | "Behavioral";
 
@@ -73,16 +74,6 @@ function snapshot() {
   return localStorage.getItem(INTERVIEW_KEY) ?? "[]";
 }
 
-function postCloud(practice: InterviewPracticeRecord[]) {
-  void fetch("/api/data/state", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "interview", practice }),
-  }).catch(() => {
-    // Interview practice remains available locally when cloud sync is offline.
-  });
-}
-
 export function readInterviewPracticeLocal() {
   if (typeof window === "undefined") return [];
   return parse(localStorage.getItem(INTERVIEW_KEY) ?? "[]");
@@ -96,7 +87,7 @@ export function hydrateInterviewPractice(practice: InterviewPracticeRecord[]) {
 export function saveInterviewPractice(practice: InterviewPracticeRecord[]) {
   const trimmed = practice.slice(0, 300);
   hydrateInterviewPractice(trimmed);
-  postCloud(trimmed);
+  void queueCloudSave({ type: "interview", practice: trimmed });
 }
 
 export function useInterviewPractice() {
