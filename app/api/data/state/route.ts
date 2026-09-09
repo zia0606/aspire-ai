@@ -1,11 +1,11 @@
 import { getAuth } from "../../../_lib/server/auth";
 import { getDatabasePool } from "../../../_lib/server/database";
-import { isProfileV2 } from "../../../_lib/profile-validation";
+import { isProfileV2, upgradeProfile } from "../../../_lib/profile-validation";
 
 type SaveRequest =
   | { type: "profile"; profile: unknown }
   | { type: "roadmap"; career: unknown; completed: unknown }
-  | { type: "resume"; result: unknown }
+  | { type: "resume"; result: unknown; requestId?: unknown }
   | { type: "applications"; applications: unknown }
   | { type: "portfolio"; evidence: unknown }
   | { type: "interview"; practice: unknown };
@@ -116,10 +116,22 @@ export async function GET(request: Request) {
     ),
   ]);
 
+  const storedProfile = profileResult.rows[0]?.profile ?? null;
+  const profile = upgradeProfile(storedProfile);
+
+  // Migrate older valid profiles in place after a successful read. Career Match is
+  // preserved; this only upgrades the stored shape so older users do not disappear.
+  if (profile && storedProfile && !isProfileV2(storedProfile)) {
+    await database.query(
+      "update aspire_profiles set profile = $2::jsonb, updated_at = now() where user_id = $1",
+      [userId, JSON.stringify(profile)],
+    );
+  }
+
   return Response.json({
     mode: "cloud",
     signedIn: true,
-    profile: profileResult.rows[0]?.profile ?? null,
+    profile,
     roadmaps: roadmapResult.rows.map((row) => ({
       career: row.career,
       completed: row.completed,
@@ -159,7 +171,8 @@ export async function POST(request: Request) {
   }
 
   if (body.type === "profile") {
-    if (!isProfileV2(body.profile)) {
+    const profile = upgradeProfile(body.profile);
+    if (!profile) {
       return Response.json({ error: "Invalid Aspire profile." }, { status: 400 });
     }
 
@@ -168,7 +181,7 @@ export async function POST(request: Request) {
        values ($1, $2::jsonb, now())
        on conflict (user_id)
        do update set profile = excluded.profile, updated_at = now()`,
-      [userId, JSON.stringify(body.profile)],
+      [userId, JSON.stringify(profile)],
     );
 
     return Response.json({ saved: true, type: "profile" });
@@ -208,11 +221,15 @@ export async function POST(request: Request) {
     const resumeScore = typeof result.resumeScore === "number" && Number.isFinite(result.resumeScore)
       ? Math.max(0, Math.min(100, Math.round(result.resumeScore)))
       : 0;
-    const id = crypto.randomUUID();
+    const suppliedId = typeof body.requestId === "string" && /^[a-z0-9-]{20,120}$/i.test(body.requestId)
+      ? body.requestId
+      : null;
+    const id = suppliedId ?? crypto.randomUUID();
 
     await database.query(
       `insert into aspire_resume_analyses (id, user_id, target_career, resume_score, result, created_at)
-       values ($1, $2, $3, $4, $5::jsonb, now())`,
+       values ($1, $2, $3, $4, $5::jsonb, now())
+       on conflict (id) do nothing`,
       [id, userId, targetCareer, resumeScore, JSON.stringify(result)],
     );
 
