@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppNav from "../_components/app-nav";
 import { authClient } from "../_lib/auth-client";
+import { clearLocalAspireWorkspace } from "../_lib/local-workspace";
 import { useProfile } from "../_lib/profile-store";
 
 type Status = {
@@ -20,6 +21,7 @@ export default function AccountPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     void fetch("/api/system/status", { cache: "no-store" })
@@ -73,8 +75,23 @@ export default function AccountPage() {
   }
 
   async function signOut() {
-    await authClient.signOut();
-    window.location.reload();
+    setMessage("");
+    setSigningOut(true);
+
+    try {
+      const result = await authClient.signOut();
+      if (result.error) {
+        setMessage(result.error.message || "Could not sign out. Your local data is unchanged.");
+        return;
+      }
+
+      clearLocalAspireWorkspace();
+      window.location.assign("/account");
+    } catch {
+      setMessage("Could not sign out. Your local data is unchanged.");
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (
@@ -118,8 +135,15 @@ export default function AccountPage() {
                 Local storage remains the immediate working copy. Aspire mirrors changes to your account and restores cloud data when you sign in on another browser.
               </p>
 
-              <button type="button" className="button-secondary" onClick={() => void signOut()}>
-                Sign out
+              {message && <p className="form-message">{message}</p>}
+
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => void signOut()}
+                disabled={signingOut}
+              >
+                {signingOut ? "Signing out…" : "Sign out"}
               </button>
             </div>
           ) : (
